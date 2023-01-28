@@ -1,5 +1,6 @@
 .. meta::
-   :og:description: Create and maintain a working configuration using certificates, listeners, routes, apps, and upstreams.
+   :og:description: Create and maintain a working configuration using
+                    certificates, listeners, routes, apps, and upstreams.
 
 .. include:: include/replace.rst
 
@@ -16,7 +17,7 @@ Quick Start
 To run an application on Unit, first set up an :ref:`application
 <configuration-applications>` object.  Let's store it in a file to :samp:`PUT`
 it into the :samp:`config/applications` section of Unit's control API,
-available via the :ref:`control socket <installation-src-startup>` at
+available via the :ref:`control socket <source-startup>` at
 :samp:`http://localhost/`:
 
 .. code-block:: console
@@ -82,8 +83,9 @@ Finally, check the resulting configuration:
        }
 
 You can upload the entire configuration at once or update it in portions.  For
-details of configuration techniques, see :ref:`below <configuration-mgmt>`.
-For a full configuration sample, see :ref:`here <configuration-full-example>`.
+details of configuration techniques, see the :ref:`next section
+<configuration-mgmt>`.  For a full configuration sample, see :ref:`here
+<configuration-full-example>`.
 
 
 .. _configuration-mgmt:
@@ -93,20 +95,23 @@ Configuration Management
 ************************
 
 Unit's configuration is JSON-based, accessed via the :ref:`control socket
-<installation-src-startup>`, and entirely manageable over HTTP.
+<source-startup>`, and entirely manageable over HTTP.
 
 .. note::
 
    Here, we use :program:`curl` to query Unit's control API, prefixing URIs
    with :samp:`http://localhost` as expected by this utility.  You can use any
    tool capable of making HTTP requests; also, the hostname is irrelevant for
-   Unit.
+   Unit.  If you often configure Unit manually, JSON command-line tools such as
+   `jq <https://stedolan.github.io/jq/>`__ and `jo
+   <https://jpmens.net/2016/03/05/a-shell-command-to-create-json-jo/>`__ may
+   come in handy.
 
 To address parts of the configuration, query the control socket over HTTP; URI
 path segments of your requests to the API must be names of its `JSON object
-members <https://datatracker.ietf.org/doc/html/rfc8259#section-4>`_ or indexes
-of its `array elements
-<https://datatracker.ietf.org/doc/html/rfc8259#section-5>`_.
+<https://datatracker.ietf.org/doc/html/rfc8259#section-4>`_ members or indexes
+of its `JSON array <https://datatracker.ietf.org/doc/html/rfc8259#section-5>`_
+elements.
 
 You can manipulate the API with the following HTTP methods:
 
@@ -132,10 +137,10 @@ You can manipulate the API with the following HTTP methods:
      - Deletes the entity at the request URI and returns status message in the
        HTTP response body.
 
-Before a change, Unit evaluates the difference it causes in the entire
-configuration; if there's none, nothing is done.  For example, you can't
-:ref:`restart <configuration-proc-mgmt>` an updated app by uploading the same
-configuration it already has.
+Before a change, Unit checks the difference it makes in the entire
+configuration; if there's none, nothing is done.  Thus, you can't restart an
+app by reuploading its unchanged configuration; still, there is another
+:ref:`way <configuration-proc-mgmt>`.
 
 Unit performs actual reconfiguration steps as gracefully as possible: running
 tasks expire naturally, connections are properly closed, processes end
@@ -157,10 +162,11 @@ any other options you could have configured, whereas the second one replaces
 only the :samp:`pass` value and leaves other options intact.
 
 .. nxt_details:: Examples
+   :hash: conf-examples
 
    To minimize typos and effort, avoid embedding JSON payload in your commands;
-   instead, consider storing your configuration snippets for review and reuse.
-   Suppose you save your application object as :file:`wiki.json`:
+   instead, store your configuration snippets for review and reuse.  For
+   instance, save your application object as :file:`wiki.json`:
 
    .. code-block:: json
 
@@ -364,10 +370,11 @@ only the :samp:`pass` value and leaves other options intact.
            }
 
 .. nxt_details:: Replicating Unit Configurations
+   :hash: conf-replication
 
    Although Unit is fully dynamic, sometimes you just want to copy an existing
    setup without the need for subsequent meddling.  Unit's :ref:`state
-   directories <installation-config-src-state>` are interchangeable, provided
+   directories <source-config-src-state>` are interchangeable, provided
    they are used by the same version of Unit that created them, so you can use
    a shortcut to replicate a Unit instance.
 
@@ -405,9 +412,9 @@ only the :samp:`pass` value and leaves other options intact.
 
    .. note::
 
-      Different stop and start commands may be needed if you use a
-      :ref:`non-official <installation-community-repos>` installation
-      method.
+      Stop and start commands may differ if Unit was installed from a
+      :ref:`non-official <installation-community-repos>` repo or built from
+      :ref:`source <source>`.
 
    Copy the reference state directory to the target state directory by
    arbitrary means; make sure to include subdirectories and hidden files.
@@ -421,7 +428,7 @@ only the :samp:`pass` value and leaves other options intact.
 
       If you run your Unit instances manually, :option:`!--state` can be
       used to set the state directory at :ref:`startup
-      <installation-src-startup>`.
+      <source-startup>`.
 
    After the restart, the target instance picks up the configuration you've
    copied to the state directory.
@@ -433,17 +440,25 @@ only the :samp:`pass` value and leaves other options intact.
 Listeners
 *********
 
-To start accepting requests, add a listener object in the
-:samp:`config/listeners` API section.  The object's name uniquely combines a
-host IP address and a port that Unit binds to; a wildcard matches any host IPs.
+To accept requests, add a listener object in the :samp:`config/listeners` API
+section; the object's name can be:
 
-.. note::
+- A unique IP socket: :samp:`127.0.0.1:80`, :samp:`[::1]:8080`
 
-   On Linux-based systems, wildcard listeners can't overlap with other
-   listeners on the same port due to kernel-imposed rules.  For example,
-   :samp:`*:8080` conflicts with :samp:`127.0.0.1:8080`; this means a listener
-   can't be directly reconfigured from :samp:`*:8080` to :samp:`127.0.0.1:8080`
-   or vice versa without deleting it first.
+- A wildcard that matches any host IPs on the port: :samp:`*:80`
+
+.. nxt_details:: Linux: Abstract UNIX Sockets and Port Limitations
+   :hash: listeners-linux
+
+   On Linux-based systems, `abstract UNIX sockets
+   <https://man7.org/linux/man-pages/man7/unix.7.html>`__ can be used as well:
+   :samp:`unix:@abstract_socket`.
+
+   Also, wildcard listeners can't overlap with other listeners on the same port
+   due to rules imposed by Linux kernel.  For example, :samp:`*:8080` conflicts
+   with :samp:`127.0.0.1:8080`; in particular, this means :samp:`*:8080` can't
+   be *immediately replaced* by :samp:`127.0.0.1:8080` (or vice versa) without
+   deleting it first.
 
 Unit dispatches the requests it receives to destinations referenced by
 listeners.  You can plug several listeners into one destination or use a
@@ -464,8 +479,8 @@ Available listener options:
         - :ref:`Application <configuration-applications>`:
           :samp:`applications/qwk2mart`
 
-        - :ref:`PHP <configuration-php-targets>` or :ref:`Python
-          <configuration-python-targets>` app target:
+        - :ref:`PHP target <configuration-php-targets>` or :ref:`Python target
+          <configuration-python-targets>`:
           :samp:`applications/myapp/section`
 
         - :ref:`Route <configuration-routes>`: :samp:`routes/route66`,
@@ -473,19 +488,17 @@ Available listener options:
 
         - :ref:`Upstream <configuration-upstreams>`: :samp:`upstreams/rr-lb`
 
-        .. note::
-
-           The value is :ref:`variable <configuration-variables>`-interpolated;
-           if it matches no configuration entities after interpolation, a 404
-           "Not Found" response is returned.
+        The value is :ref:`variable <configuration-variables>`-interpolated; if
+        it matches no configuration entities after interpolation, a 404 "Not
+        Found" status code is returned.
 
     * - :samp:`tls`
       - Object, defines SSL/TLS :ref:`settings
         <configuration-listeners-ssl>`.
 
-    * - :samp:`client_ip`
-      - Object, configures client IP address :ref:`replacement
-        <configuration-listeners-xff>`.
+    * - :samp:`forwarded`
+      - Object, configures client IP address and protocol :ref:`replacement
+        <configuration-listeners-forwarded>`.
 
 
 Here, a local listener accepts requests at port 8300 and passes them to the
@@ -539,9 +552,9 @@ The :samp:`tls` object provides the following options:
      - Description
 
    * - :samp:`certificate` (required)
-     - String or string array, refers to one or more certificate bundles you
-       have :ref:`uploaded <configuration-ssl>` earlier, enabling secure
-       communication via the listener.
+     - String or string array, refers to one or more :ref:`certificate bundles
+       <configuration-ssl>` uploaded earlier, enabling secure communication via
+       the listener.
 
    * - :samp:`conf_commands`
      - Object, defines the SSL `configuration commands
@@ -557,11 +570,14 @@ The :samp:`tls` object provides the following options:
 
                 OpenSSL 1.1.1d  10 Sep 2019
 
+       Also, make sure your OpenSSL version supports the commands set in this
+       option.
+
    * - :samp:`session`
      - Object, configures the TLS session cache and tickets for the listener.
 
-To use a certificate bundle you've :ref:`uploaded <configuration-ssl>` earlier,
-name it in the :samp:`certificate` option of the :samp:`tls` object:
+To use an earlier uploaded :ref:`certificate bundle <configuration-ssl>`, name
+it in the :samp:`certificate` option of the :samp:`tls` object:
 
 .. code-block:: json
 
@@ -577,6 +593,7 @@ name it in the :samp:`certificate` option of the :samp:`tls` object:
    }
 
 .. nxt_details:: Configuring Multiple Bundles
+   :hash: conf-bundles
 
    Since version 1.23.0, Unit supports configuring `Server Name Indication
    (SNI) <https://datatracker.ietf.org/doc/html/rfc6066#section-3>`__ on a
@@ -586,7 +603,7 @@ name it in the :samp:`certificate` option of the :samp:`tls` object:
    .. code-block:: json
 
       {
-          "*:80": {
+          "*:443": {
               "pass": "routes",
               "tls": {
                   "certificate": [
@@ -731,14 +748,14 @@ The :samp:`tickets` option works as follows:
      An empty array effectively disables session tickets, same as setting
      :samp:`tickets` to :samp:`false`.
 
-.. _configuration-listeners-xff:
+.. _configuration-listeners-forwarded:
 
-=============================
-Originating IP Identification
-=============================
+=======================
+IP, Protocol Forwarding
+=======================
 
-Unit supports identification of the clients' originating IPs with the
-:samp:`client_ip` object and its options:
+Unit enables the :samp:`X-Forwarded-*` header fields with the :samp:`forwarded`
+object and its options:
 
 .. list-table::
     :header-rows: 1
@@ -746,12 +763,19 @@ Unit supports identification of the clients' originating IPs with the
     * - Option
       - Description
 
-    * - :samp:`header` (required)
-      - String, defines the relevant HTTP header fields to expect in the
+    * - :samp:`client_ip`
+      - String, defines the relevant HTTP header fields to look for in the
         request.  Unit expects them to follow the `X-Forwarded-For
         <https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Forwarded-For>`__
-        notation with the field value being a comma- or space-separated list of
-        IPv4 or IPv6 addresses.
+        notation, with the fields' values themselves being comma- or space-separated
+        lists of IPv4 or IPv6 addresses.
+
+    * - :samp:`protocol`
+      - String, defines the relevant HTTP header field to look for in the
+        request.  Unit expects it to follow the `X-Forwarded-Proto
+        <https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Forwarded-Proto>`__
+        notation, with the field value itself being :samp:`http`,
+        :samp:`https`, or :samp:`on`.
 
     * - :samp:`source` (required)
       - String or array of strings, defines :ref:`address-based patterns
@@ -759,26 +783,112 @@ Unit supports identification of the clients' originating IPs with the
         replacement occurs only if the source IP of the request is a
         :ref:`match <configuration-routes-matching-resolution>`.
 
+        A special case here is the :samp:`"unix"` string; it matches *any* UNIX
+        domain sockets.
+
     * - :samp:`recursive`
-      - Boolean, controls how the header fields are traversed.
+      - Boolean, controls how the :samp:`client_ip` fields are traversed.
 
         The default value is :samp:`false` (no recursion).
 
-Unit proceeds to inspect the :samp:`header` fields only if the source IP of the
-request :ref:`matches <configuration-routes-matching-resolution>` the
-:samp:`source` option.
+.. note::
 
-Consider the following :samp:`client_ip` configuration:
+   Besides :samp:`source`, the :samp:`forwarded` object must specify
+   :samp:`client_ip`, :samp:`protocol`, or both.
+
+.. warning::
+
+   Before version 1.28.0, Unit provided the :samp:`client_ip` object that
+   evolved into :samp:`forwarded`:
+
+   .. list-table::
+       :header-rows: 1
+
+       * - :samp:`client_ip` (pre-1.28.0)
+         - :samp:`forwarded` (post-1.28.0)
+
+       * - :samp:`header`
+         - :samp:`client_ip`
+
+       * - :samp:`source`
+         - :samp:`source`
+
+       * - :samp:`recursive`
+         - :samp:`recursive`
+
+       * - N/A
+         - :samp:`protocol`
+
+   This old syntax still works but will be eventually deprecated, though
+   not earlier than version 1.30.0.
+
+
+When :samp:`forwarded` is set, Unit respects the appropriate header fields only
+if the immediate source IP of the request :ref:`matches
+<configuration-routes-matching-resolution>` the :samp:`source` option.  Mind
+that it can use not only subnets but any :ref:`address-based patterns
+<configuration-routes-matching-patterns>`:
 
 .. code-block:: json
 
    {
-       "client_ip": {
-           "header": "X-Forwarded-For",
+       "forwarded": {
+           "client_ip": "X-Forwarded-For",
+           "source": [
+               ":nxt_hint:`198.51.100.1-198.51.100.254 <Ranges can be specified explicitly>`",
+               ":nxt_hint:`!198.51.100.128/26 <Negation rejects any addresses originating here>`",
+               ":nxt_hint:`203.0.113.195 <Individual addresses are supported as well>`"
+           ]
+       }
+   }
+
+.. _configuration-listeners-xfp:
+
+Overwriting Protocol Scheme
+***************************
+
+The :samp:`protocol` option enables overwriting the incoming request's protocol
+scheme based on the header field it specifies.  Consider the following
+:samp:`forwarded` configuration:
+
+.. code-block:: json
+
+   {
+       "forwarded": {
+           "protocol": "X-Forwarded-Proto",
+           "source": [
+               "192.0.2.0/24",
+               "198.51.100.0/24"
+           ]
+       }
+   }
+
+Suppose a request arrives with the following header field:
+
+.. code-block:: none
+
+   X-Forwarded-Proto: https
+
+If the source IP of the request matches :samp:`source`, Unit handles
+this request as an :samp:`https` one.
+
+.. _configuration-listeners-xff:
+
+Originating IP Identification
+*****************************
+
+Unit also supports identifying the client's originating IP with the
+:samp:`client_ip` option:
+
+.. code-block:: json
+
+   {
+       "forwarded": {
+           "client_ip": "X-Forwarded-For",
            "recursive": false,
            "source": [
-               "10.0.0.0/8",
-               "150.172.238.0/24"
+               "192.0.2.0/24",
+               "198.51.100.0/24"
            ]
        }
    }
@@ -787,37 +897,20 @@ Suppose a request arrives with the following header fields:
 
 .. code-block:: none
 
-   X-Forwarded-For: 203.0.113.195
-   X-Forwarded-For: 70.41.3.18, 150.172.238.178
+   X-Forwarded-For: 192.0.2.18
+   X-Forwarded-For: 203.0.113.195, 198.51.100.178
 
 If :samp:`recursive` is set to :samp:`false` (default), Unit chooses the
-*rightmost* address of the *last* :samp:`header` field as the originating IP.
-In the example, it is set to 150.172.238.178 for requests from 10.0.0.0/8 or
-150.172.238.0/24.
+*rightmost* address of the *last* field named in :samp:`client_ip` as the
+originating IP of the request.  In the example, it is set to 198.51.100.178 for
+requests from 192.0.2.0/24 or 198.51.100.0/24.
 
-If :samp:`recursive` is set to :samp:`true`, Unit inspects all :samp:`header`
-fields in reverse order.  Each is traversed from right to left until the first
-non-trusted address; if found, it's chosen as the originating IP.  In the
-example above with :samp:`"recursive": true`, the client IP would be set to
-70.41.3.18 because 150.172.238.178 is also trusted; this simplifies working
-behind multiple reverse proxies.
-
-Finally, mind that :samp:`source` can use not only subnets but any
-:ref:`address-based patterns <configuration-routes-matching-patterns>`:
-
-.. code-block:: json
-
-   {
-       "client_ip": {
-           "header": "X-Forwarded-For",
-           "source": [
-               ":nxt_hint:`!10.0.0.0/8 <Negation rejects any addresses originating here>`",
-               ":nxt_hint:`82.204.252.1-82.204.252.254 <Ranges can be specified explicitly>`",
-               ":nxt_hint:`203.0.113.195 <Individual addresses are supported as well>`"
-           ]
-       }
-   }
-
+If :samp:`recursive` is set to :samp:`true`, Unit inspects all
+:samp:`client_ip` fields in reverse order.  Each is traversed from right to
+left until the first non-trusted address; if found, it's chosen as the
+originating IP.  In the example above with :samp:`"recursive": true`, the
+client IP would be set to 203.0.113.195 because 198.51.100.178 is also trusted;
+this simplifies working behind multiple reverse proxies.
 
 
 .. _configuration-routes:
@@ -847,7 +940,9 @@ In its simplest form, :samp:`routes` can be a single route array:
             }
         },
 
-        ":nxt_hint:`routes <Array-mode routes, simply referred to as 'routes'>`": [ ":nxt_ph:`... <Any acceptable route array may go here; see the 'Route Steps' section for details>`" ]
+        ":nxt_hint:`routes <Array-mode routes, simply referred to as 'routes'>`": [
+            ":nxt_ph:`... <Any acceptable route array may go here; see the 'Route Steps' section for details>`"
+        ]
    }
 
 Another form is an object with one or more named route arrays as members:
@@ -862,8 +957,13 @@ Another form is an object with one or more named route arrays as members:
         },
 
         "routes": {
-            ":nxt_hint:`main <Named route, referred to as 'routes/main'>`": [ ":nxt_ph:`... <Any acceptable route array may go here; see the 'Route Steps' section for details>`" ],
-            ":nxt_hint:`route66 <Named route, referred to as 'routes/route66'>`": [ ":nxt_ph:`... <Any acceptable route array may go here; see the 'Route Steps' section for details>`" ]
+            ":nxt_hint:`main <Named route, referred to as 'routes/main'>`": [
+                ":nxt_ph:`... <Any acceptable route array may go here; see the 'Route Steps' section for details>`"
+            ],
+
+            ":nxt_hint:`route66 <Named route, referred to as 'routes/route66'>`": [
+                ":nxt_ph:`... <Any acceptable route array may go here; see the 'Route Steps' section for details>`"
+            ]
         }
    }
 
@@ -893,8 +993,8 @@ they accept the following options:
 
 A request passed to a route traverses its steps sequentially:
 
-- If all :samp:`match` conditions in a step are met, the step's :samp:`action`
-  is performed.
+- If all :samp:`match` conditions in a step are met, the traversal ends and the
+  step's :samp:`action` is performed.
 
 - If a step's condition isn't met, Unit proceeds to the next step of the route.
 
@@ -907,6 +1007,7 @@ A request passed to a route traverses its steps sequentially:
   route, always placing it last to avoid potential routing issues.
 
 .. nxt_details:: Ad-Hoc Examples
+   :hash: conf-route-examples
 
    A basic one:
 
@@ -927,7 +1028,7 @@ A request passed to a route traverses its steps sequentially:
               },
               {
                   "action": {
-                      "share": "/www/static_version/"
+                      "share": "/www/static_version$uri"
                   }
               }
           ]
@@ -936,8 +1037,8 @@ A request passed to a route traverses its steps sequentially:
    This route passes all requests to the :samp:`/php/` subsection of the
    :samp:`example.com` website via HTTPS to the :samp:`php_version` app.  All
    other requests are served with static content from the
-   :samp:`/www/static_version` directory.  If there's no matching content. Unit
-   returns a 404 response code.
+   :samp:`/www/static_version/` directory.  If there's no matching content, a
+   404 "Not Found" response is returned.
 
    A more elaborate example with chained routes and proxying:
 
@@ -965,15 +1066,16 @@ A request passed to a route traverses its steps sequentially:
                       }
                   },
                   {
-                       "match": {
-                           "uri": [
-                               "*.css",
-                               "*.jpg",
-                               "*.js"
-                           ]
-                       },
+                      "match": {
+                          "uri": [
+                              "*.css",
+                              "*.jpg",
+                              "*.js"
+                          ]
+                      },
+
                       "action": {
-                          "share": "/www/static/"
+                          "share": "/www/static$uri"
                       }
                   }
               ],
@@ -1002,8 +1104,8 @@ A request passed to a route traverses its steps sequentially:
    requests that arrive via HTTP to the :samp:`http_site` app.  The second step
    passes all requests that target :samp:`blog.example.com` to the :samp:`blog`
    app.  The final step serves requests for certain file types from the
-   :samp:`/www/static/` directory.  If none of the steps matches, a 404
-   response code is returned.
+   :samp:`/www/static/` directory.  If no steps match, a 404 "Not Found"
+   response is returned.
 
 
 .. _configuration-routes-matching:
@@ -1023,10 +1125,11 @@ object define patterns to be compared to the requests' properties:
      - Case |-| :nxt_hint:`Sensitive <For arguments, cookies, and headers, this relates to property names and values; for other properties, case sensitivity affects only values>`
 
    * - :samp:`arguments`
-     - Parameter arguments supplied with the request's target `query
-       <https://datatracker.ietf.org/doc/html/rfc3986#section-3.4>`_.  In
-       argument names and values, plus signs (:samp:`+`) are replaced with
-       spaces.
+     - Arguments supplied with the request's `query string
+       <https://datatracker.ietf.org/doc/html/rfc3986#section-3.4>`__; these
+       names and value pairs are `percent decoded
+       <https://datatracker.ietf.org/doc/html/rfc3986#section-2.1>`__ with plus
+       signs (:samp:`+`) replaced by spaces.
      - Yes
 
    * - :samp:`cookies`
@@ -1051,15 +1154,21 @@ object define patterns to be compared to the requests' properties:
      - No
 
    * - :samp:`method`
-     - Method from the `request line
-       <https://datatracker.ietf.org/doc/html/rfc7231#section-4>`_, converted
-       to upper case.
+     - `Method <https://datatracker.ietf.org/doc/html/rfc7231#section-4>`_ from
+       the request line, converted to upper case.
      - No
+
+   * - :samp:`query`
+     - `Query string
+       <https://datatracker.ietf.org/doc/html/rfc3986#section-3.4>`_, `percent
+       decoded <https://datatracker.ietf.org/doc/html/rfc3986#section-2.1>`__
+       with plus signs (:samp:`+`) replaced by spaces.
+     - Yes
 
    * - :samp:`scheme`
      - URI `scheme
        <https://www.iana.org/assignments/uri-schemes/uri-schemes.xhtml>`_.
-       Currently, only :samp:`http` and :samp:`https` are supported.
+       Accepts only two patterns, either :samp:`http` or :samp:`https`.
      - No
 
    * - :samp:`source`
@@ -1067,67 +1176,64 @@ object define patterns to be compared to the requests' properties:
      - No
 
    * - :samp:`uri`
-     - Request target `path
-       <https://datatracker.ietf.org/doc/html/rfc7230#section-5.3>`_,
-       normalized by removing the query part, resolving relative path
-       references ("." and ".."), and collapsing adjacent slashes.
+     - `Request target
+       <https://datatracker.ietf.org/doc/html/rfc7230#section-5.3>`_, `percent
+       decoded <https://datatracker.ietf.org/doc/html/rfc3986#section-2.1>`__
+       and normalized by removing the `query string
+       <https://datatracker.ietf.org/doc/html/rfc3986#section-3.4>`__ and
+       resolving `relative references
+       <https://datatracker.ietf.org/doc/html/rfc3986#section-4.2>`__ ("." and
+       "..", "//").
      - Yes
 
-.. nxt_details:: Percent Encoding In Arguments and URIs
+.. nxt_details:: Arguments vs. Query
+   :hash: args-vs-query
 
-   Names and values in :samp:`arguments` and values in :samp:`uri` additionally
-   support `percent encoding
-   <https://datatracker.ietf.org/doc/html/rfc3986#section-2.1>`_.  Thus, you
-   can escape characters which have special meaning in routing (:samp:`!` is
-   :samp:`%21`, :samp:`*` is :samp:`%2A`, :samp:`%` is :samp:`%25`), or even
-   target individual bytes.  For example, to select an entire class of
-   diacritic characters such as Ö or Å by their starting byte :samp:`0xC3` in
-   UTF-8:
+   Both :samp:`arguments` and :samp:`query` operate on the query string, but
+   :samp:`query` is matched against the entire string whereas :samp:`arguments`
+   considers only the key-value pairs such as :samp:`key1=foo&key2=bar`.
 
-   .. code-block:: json
-
-      {
-          "match": {
-              "arguments": {
-                  "word": "*%C3*"
-              }
-          },
-
-          "action": {
-              "pass": ":nxt_ph:`... <Any acceptable 'pass' value may go here; see the 'Listeners' section for details>`"
-          }
-      }
-
-   This requires mentioning that actual arguments and URIs passed with requests
-   are percent *decoded*: Unit interpolates all percent-encoded entities in
-   these properties.  Thus, the following configuration:
+   Use :samp:`arguments` to define conditions based on key-value pairs in the
+   query string:
 
    .. code-block:: json
 
-      {
-          "routes": [
-              {
-                  "match": {
-                      "uri": "/:nxt_hint:`static files <Note the unencoded space>`/*"
-                  },
-
-                  "action": {
-                      "share": "/www/data/"
-                  }
-              }
-          ]
+      "arguments": {
+         "key1": "foo",
+         "key2": "bar"
       }
 
-   Matches this percent-encoded request:
+   Argument order is irrelevant: :samp:`key1=foo&key2=bar` and
+   :samp:`key2=bar&key1=foo` are considered the same.  Also, multiple
+   occurrences of an argument must all match, which means
+   :samp:`key=foo&key=bar` matches this:
 
-   .. subs-code-block:: console
+   .. code-block:: json
 
-      $ curl http://127.0.0.1/static%20files/test.txt -v
+      "arguments":{
+          "key": "*"
+      }
 
-            > GET /static%20files/test.txt HTTP/1.1
-            ...
-            < HTTP/1.1 200 OK
-            ...
+   But not this:
+
+   .. code-block:: json
+
+      "arguments":{
+          "key": "b*"
+      }
+
+   To the contrary, use :samp:`query` if your conditions concern query strings
+   but don't rely on key-value pairs:
+
+   .. code-block:: json
+
+      "query": [
+          "utf8",
+          "utf16"
+      ]
+
+   This only matches query strings of the form
+   :samp:`https://example.com?utf8` or :samp:`https://example.com?utf16`.
 
 
 .. _configuration-routes-matching-resolution:
@@ -1142,10 +1248,16 @@ To be a match, the property must meet two requirements:
 
 - No negated patterns match the property value.
 
-.. note::
+.. nxt_details:: Formal Explanation
+   :hash: pattern-set-theory
 
-   The :samp:`scheme` property accepts no patterns or arrays, but only two
-   string values: :samp:`http` or :samp:`https`.
+   This logic can be described with set operations.  Suppose set *U* comprises
+   all possible values of a property; set *P* comprises strings that match any
+   patterns without negation; set *N* comprises strings that match any
+   negation-based patterns.  In this scheme, the matching set will be:
+
+   | *U* ∩ *P* \\ *N* if *P* ≠ ∅
+   | *U* \\ *N* if *P* = ∅
 
 Here, the URI of the request must fit :samp:`pattern3`, but should not match
 :samp:`pattern1` or :samp:`pattern2`.
@@ -1165,16 +1277,6 @@ Here, the URI of the request must fit :samp:`pattern3`, but should not match
            "pass": ":nxt_ph:`... <Any acceptable 'pass' value may go here; see the 'Listeners' section for details>`"
        }
    }
-
-.. nxt_details:: Formal Explanation
-
-   This logic can be described with set operations.  Suppose set *U* comprises
-   all possible values of a property; set *P* comprises strings that match any
-   patterns without negation; set *N* comprises strings that match any
-   negation-based patterns.  In this scheme, the matching set will be:
-
-   | *U* ∩ *P* \\ *N* if *P* ≠ ∅
-   | *U* \\ *N* if *P* = ∅
 
 Additionally, special matching logic is used for :samp:`arguments`,
 :samp:`cookies`, and :samp:`headers`. Each of these can be a single object that
@@ -1212,7 +1314,6 @@ respective pattern:
                {
                    "arg1": "pattern"
                },
-
                {
                    "arg2": "pattern"
                }
@@ -1251,7 +1352,6 @@ be taken (:samp:`host & method & uri & arg1 & arg2 & (cookie1 | cookie2) &
                {
                    "cookie1": "pattern",
                },
-
                {
                    "cookie2": "pattern",
                }
@@ -1261,7 +1361,6 @@ be taken (:samp:`host & method & uri & arg1 & arg2 & (cookie1 | cookie2) &
                {
                    "header1": "pattern",
                },
-
                {
                    "header2": "pattern",
                    "header3": "pattern"
@@ -1275,6 +1374,10 @@ be taken (:samp:`host & method & uri & arg1 & arg2 & (cookie1 | cookie2) &
    }
 
 .. nxt_details:: Object Pattern Examples
+   :hash: conf-obj-pattern-examples
+
+   This requires :samp:`mode=strict` and any :samp:`access` argument other than
+   :samp:`access=full` in the URI query:
 
    .. code-block:: json
 
@@ -1291,8 +1394,8 @@ be taken (:samp:`host & method & uri & arg1 & arg2 & (cookie1 | cookie2) &
           }
       }
 
-   This requires :samp:`mode=strict` and any :samp:`access` argument other than
-   :samp:`access=full` in the URI query.
+   This matches requests that either use :samp:`gzip` and identify as
+   :samp:`Mozilla/5.0` or list :samp:`curl` as the user agent:
 
    .. code-block:: json
 
@@ -1303,7 +1406,6 @@ be taken (:samp:`host & method & uri & arg1 & arg2 & (cookie1 | cookie2) &
                       "Accept-Encoding": "*gzip*",
                       "User-Agent": "Mozilla/5.0*"
                   },
-
                   {
                       "User-Agent": "curl*"
                   }
@@ -1315,9 +1417,6 @@ be taken (:samp:`host & method & uri & arg1 & arg2 & (cookie1 | cookie2) &
           }
       }
 
-   This matches requests that either use :samp:`gzip` and identify as
-   :samp:`Mozilla/5.0` or list :samp:`curl` as the user agent.
-
 
 .. _configuration-routes-matching-patterns:
 
@@ -1328,17 +1427,85 @@ Individual patterns can be address-based (:samp:`source` and
 :samp:`destination`) or string-based (other properties).
 
 String-based patterns must match the property to a character; wildcards or
-regexes modify this behavior:
+:nxt_hint:`regexes <Available only if Unit was built with PCRE support enabled,
+which is the default for the official packages>` modify this behavior:
 
 - A wildcard pattern may contain any combination of wildcards (:samp:`*`), each
   standing for an arbitrary number of characters: :samp:`How*s*that*to*you`.
 
+.. _configuration-routes-matching-patterns-regex:
+
 - A regex pattern starts with a tilde (:samp:`~`):
   :samp:`~^\\\\d+\\\\.\\\\d+\\\\.\\\\d+\\\\.\\\\d+` (escaping backslashes is a
-  JSON `requirement <https://www.json.org/json-en.html>`_).  Regexes are `PCRE
+  `JSON requirement <https://www.json.org/json-en.html>`_).  Regexes are `PCRE
   <https://www.pcre.org/current/doc/html/pcre2syntax.html>`_-flavored.
 
+.. nxt_details:: Percent Encoding In Arguments, Query, and URI Patterns
+   :hash: percent-encoding
+
+   Argument names, non-regex string patterns in :samp:`arguments`,
+   :samp:`query`, and :samp:`uri` can be `percent encoded
+   <https://datatracker.ietf.org/doc/html/rfc3986#section-2.1>`_ to mask
+   special characters (:samp:`!` is :samp:`%21`, :samp:`~` is :samp:`%7E`,
+   :samp:`*` is :samp:`%2A`, :samp:`%` is :samp:`%25`) or even target single
+   bytes.  For example, you can select diacritics such as Ö or Å by their
+   starting byte :samp:`0xC3` in UTF-8:
+
+   .. code-block:: json
+
+      {
+          "match": {
+              "arguments": {
+                  "word": "*%C3*"
+              }
+          },
+
+          "action": {
+              "pass": ":nxt_ph:`... <Any acceptable 'pass' value may go here; see the 'Listeners' section for details>`"
+          }
+      }
+
+   Unit decodes such strings and matches them against respective request
+   entities, decoding these as well:
+
+   .. code-block:: json
+
+      {
+          "routes": [
+              {
+                  "match": {
+                      "query": ":nxt_ph:`%7E <Tilde>`fuzzy word search"
+                  },
+
+                  "action": {
+                      "return": 200
+                  }
+              }
+          ]
+      }
+
+   This condition matches the following percent-encoded request:
+
+   .. subs-code-block:: console
+
+      $ curl http://127.0.0.1/?~fuzzy:nxt_ph:`%20 <Space>`word:nxt_ph:`%20 <Space>`search -v
+
+            > GET /?~fuzzy%20word%20search HTTP/1.1
+            ...
+            < HTTP/1.1 200 OK
+            ...
+
+   Note that the encoded spaces (:samp:`%20`) in the request match their
+   unencoded counterparts in the pattern; vice versa, the encoded tilde
+   (:samp:`%7E`) in the condition matches :samp:`~` in the request.
+
+
 .. nxt_details:: String Pattern Examples
+   :hash: conf-str-pattern-examples
+
+   A regular expression that matches any :file:`.php` files within the
+   :file:`/data/www/` directory and its subdirectories.  Note the backslashes;
+   escaping is a JSON-specific requirement:
 
    .. code-block:: json
 
@@ -1352,9 +1519,7 @@ regexes modify this behavior:
           }
       }
 
-   A regular expression that matches any :file:`.php` files within the
-   :file:`/data/www/` directory and its subdirectories.  Note the backslashes;
-   escaping is a JSON-specific requirement.
+   Only subdomains of :samp:`example.com` will match:
 
    .. code-block:: json
 
@@ -1368,7 +1533,8 @@ regexes modify this behavior:
           }
       }
 
-   Only subdomains of :samp:`example.com` will match.
+   Only requests for :samp:`.php` files located in :file:`/admin/`'s
+   subdirectories will match:
 
    .. code-block:: json
 
@@ -1382,8 +1548,8 @@ regexes modify this behavior:
           }
       }
 
-   Only requests for :samp:`.php` files located in :file:`/admin/`'s
-   subdirectories will match.
+   Here, any :samp:`eu-` subdomains of :samp:`example.com` will match except
+   :samp:`eu-5.example.com`:
 
    .. code-block:: json
 
@@ -1400,8 +1566,7 @@ regexes modify this behavior:
           }
       }
 
-   Here, any :samp:`eu-` subdomains of :samp:`example.com` will match except
-   :samp:`eu-5.example.com`.
+   Any methods will match except :samp:`HEAD` and :samp:`GET`:
 
    .. code-block:: json
 
@@ -1418,9 +1583,8 @@ regexes modify this behavior:
           }
       }
 
-   Any methods will match except :samp:`HEAD` and :samp:`GET`.
-
-   You can also combine certain special characters in a pattern:
+   You can also combine certain special characters in a pattern.  Here, any
+   URIs will match except the ones containing :samp:`/api/`:
 
    .. code-block:: json
 
@@ -1434,7 +1598,8 @@ regexes modify this behavior:
           }
       }
 
-   Here, any URIs will match except the ones containing :samp:`/api/`.
+   Here, URIs of any articles that don't look like :samp:`YYYY-MM-DD` dates
+   will match.  Again, note the backslashes; this is a JSON requirement:
 
    .. code-block:: json
 
@@ -1451,13 +1616,11 @@ regexes modify this behavior:
           }
       }
 
-   Here, URIs of any articles that don't look like :samp:`YYYY-MM-DD` dates
-   will match.  Again, note the backslashes; this is a JSON requirement.
-
 Address-based patterns define individual IPv4 (dot-decimal or `CIDR
-<https://datatracker.ietf.org/doc/html/rfc4632>`__) or IPv6 (hexadecimal or
-`CIDR <https://datatracker.ietf.org/doc/html/rfc4291#section-2.3>`__) addresses
-that must exactly match the property value; wildcards and ranges modify this
+<https://datatracker.ietf.org/doc/html/rfc4632>`__), IPv6 (hexadecimal or `CIDR
+<https://datatracker.ietf.org/doc/html/rfc4291#section-2.3>`__), or any `UNIX
+domain socket <https://en.wikipedia.org/wiki/Unix_domain_socket>`__ addresses
+that must exactly match the property; wildcards and ranges modify this
 behavior:
 
 - Wildcards (:samp:`*`) can only be used to match arbitrary IPs
@@ -1466,23 +1629,67 @@ behavior:
 - Ranges (:samp:`-`) can used with both IPs (in respective notation) and ports
   (:samp:`<start_port>-<end_port>`).
 
+.. nxt_details:: Address-Based Allow-Deny Lists
+   :hash: allow-deny
+
+   Addresses come in handy when implementing an allow-deny mechanism with
+   routes, for instance:
+
+   .. code-block:: json
+
+      "routes": [
+          {
+              "match": {
+                  "source": [
+                      "192.168.1.0/24",
+                      "2001:0db8::/32",
+                      "!192.168.1.1",
+                      "!10.1.1.0/16"
+                  ]
+              },
+
+              "action": {
+                  "share": "/www/data$uri"
+              }
+          }
+      ]
+
+   See :ref:`here <configuration-routes-matching-resolution>` for details of
+   pattern resolution order; this corresponds to the following :program:`nginx`
+   directive:
+
+   .. code-block:: nginx
+
+      location / {
+          deny  10.1.1.0/16;
+          deny  192.168.1.1;
+          allow 192.168.1.0/24;
+          allow 2001:0db8::/32;
+          deny  all;
+
+          root /www/data;
+      }
+
 .. nxt_details::  Address Pattern Examples
+   :hash: conf-addr-pattern-examples
+
+   This uses IPv4-based matching with wildcards and ranges:
 
    .. code-block:: json
 
       {
           "match": {
               "source": [
-                  "10.0.0.0-10.255.255.255",
-                  "10.0.0.0-11.255.255.255:8000",
-                  "8.0.0.0-11.255.255.255:8080-8090",
+                  "192.0.2.1-192.0.2.200",
+                  "198.51.100.1-198.51.100.200:8000",
+                  "203.0.113.1-203.0.113.200:8080-8090",
                   "*:80"
               ],
 
               "destination": [
-                  "10.0.0.0/8",
-                  "10.0.0.0/7:8000",
-                  "10.0.0.0/6:8080-8090",
+                  "192.0.2.0/24",
+                  "198.51.100.0/24:8000",
+                  "203.0.113.0/24:8080-8090",
                   "*:80"
               ]
           },
@@ -1492,23 +1699,23 @@ behavior:
           }
       }
 
-   This uses IPv4-based matching with wildcards and ranges.
+   This uses IPv6-based matching with wildcards and ranges:
 
    .. code-block:: json
 
       {
           "match": {
               "source": [
-                   "2001::-200f:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
-                   "[fe08::-feff::]:8000",
-                   "[fff0::-fff0::10]:8080-8090",
+                   "2001:0db8::-2001:0db8:aaa9:ffff:ffff:ffff:ffff:ffff",
+                   "[2001:0db8:aaaa::-2001:0db8:bbbb::]:8000",
+                   "[2001:0db8:bbbb::1-2001:0db8:cccc::]:8080-8090",
                    "*:80"
               ],
 
               "destination": [
-                   "2001::/16",
-                   "[0ff::/64]:8000",
-                   "[fff0:abcd:ffff:ffff:ffff::/128]:8080-8090",
+                   "2001:0db8:cccd::/48",
+                   "[2001:0db8:ccce::/48]:8000",
+                   "[2001:0db8:ccce:ffff::/64]:8080-8090",
                    "*:80"
               ]
           },
@@ -1518,7 +1725,7 @@ behavior:
           }
       }
 
-   This uses IPv6-based matching with wildcards and ranges.
+   This matches any of the listed IPv4 or IPv6 addresses:
 
    .. code-block:: json
 
@@ -1528,7 +1735,7 @@ behavior:
                   "127.0.0.1",
                   "192.168.0.1",
                   "::1",
-                  "2002:c0a8:0001::c0a8:0001"
+                  "2001:0db8:1::c0a8:1"
               ]
           },
 
@@ -1537,15 +1744,15 @@ behavior:
           }
       }
 
-   This matches any of the listed IPv4 or IPv6 addresses.
+   Here, any IPs from the range will match, except for :samp:`192.0.2.9`:
 
    .. code-block:: json
 
       {
           "match": {
               "source": [
-                  "10.0.0.0-10.0.0.10",
-                  "!10.0.0.9"
+                  "192.0.2.1-192.0.2.10",
+                  "!192.0.2.9"
               ]
           },
 
@@ -1554,7 +1761,7 @@ behavior:
           }
       }
 
-   Here, any IPs from the range will match, except for :samp:`10.0.0.9`.
+   This matches any IPs but limits the acceptable ports:
 
    .. code-block:: json
 
@@ -1572,7 +1779,20 @@ behavior:
           }
       }
 
-   This matches any IPs but limits the acceptable ports.
+   This matches any UNIX domain sockets:
+
+   .. code-block:: json
+
+      {
+          "match": {
+              "source": "unix"
+          },
+
+          "action": {
+              "pass": ":nxt_ph:`... <Any acceptable 'pass' value may go here; see the 'Listeners' section for details>`"
+          }
+      }
+
 
 
 .. _configuration-routes-action:
@@ -1607,7 +1827,7 @@ request using the respective :samp:`action`.  The mutually exclusive
      - :ref:`configuration-return`
 
    * - :samp:`share`
-     - Directory location that serves the request with static content.
+     - File paths that serve the request with static content.
      - :ref:`configuration-static`
 
 An example:
@@ -1631,12 +1851,13 @@ An example:
                },
 
                "action": {
-                   "share": "/var/www/static/",
+                   "share": [
+                       "/var/www/static$uri",
+                       "/var/www/static/assets$uri"
+                    ],
+
                    "fallback": {
-                       "share": "/var/www/static/assets",
-                       "fallback": {
-                            "pass": "upstreams/cdn"
-                       }
+                        "pass": "upstreams/cdn"
                    }
                }
            },
@@ -1669,24 +1890,34 @@ An example:
 Variables
 *********
 
-While configuring Unit, you can use built-in variables that are replaced by
-dynamic values in runtime.  This enables flexible request processing, making
-the configuration more compact and straightforward.
-
-.. note::
-
-   Currently, the only place where variables are recognized is the :samp:`pass`
-   option in :ref:`listeners <configuration-listeners>` and :ref:`actions
-   <configuration-routes-action>`.  This means you can use them to guide
-   requests between sets of routes, applications, targets, or upstreams.
-
-Available variables:
+Some options in Unit configuration allow the use of variables whose values are
+set in runtime:
 
 .. list-table::
    :header-rows: 1
 
    * - Variable
      - Description
+
+   * - :samp:`arg_*`, :samp:`cookie_*`, :samp:`header_*`
+     - Variables that store :ref:`request arguments, cookies, and header fields
+       <configuration-routes-matching>`, such as :samp:`arg_queryTimeout`,
+       :samp:`cookie_sessionId`, or :samp:`header_Accept_Encoding`.  The names
+       of the :samp:`header_*` variables are case insensitive.
+
+   * - :samp:`body_bytes_sent`
+     - Number of bytes sent in the response body.
+
+   * - :samp:`dollar`
+     - Literal dollar sign (:samp:`$`), used for escaping.
+
+   * - :samp:`header_referer`
+     - Contents of the :samp:`Referer` request `header field
+       <https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Referer>`__.
+
+   * - :samp:`header_user_agent`
+     - Contents of the :samp:`User-Agent` request `header field
+       <https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/User-Agent>`__.
 
    * - :samp:`host`
      - :samp:`Host`
@@ -1698,14 +1929,54 @@ Available variables:
      - Method from the `request
        line <https://datatracker.ietf.org/doc/html/rfc7231#section-4>`_.
 
+   * - :samp:`remote_addr`
+     - Remote IP address of the request.
+
+   * - :samp:`request_line`
+     - Entire `request
+       line <https://datatracker.ietf.org/doc/html/rfc7231#section-4>`_.
+
+   * - :samp:`request_uri`
+     - Request target `path
+       <https://datatracker.ietf.org/doc/html/rfc3986#section-3.3>`_
+       *including* the `query
+       <https://datatracker.ietf.org/doc/html/rfc3986#section-3.4>`__,
+       normalized by resolving relative path references ("." and "..") and
+       collapsing adjacent slashes.
+
+   * - :samp:`status`
+     - HTTP `status code <https://tools.ietf.org/html/rfc7231#section-6>`__ of
+       the response.
+
+   * - :samp:`time_local`
+     - Local time, formatted as follows: :samp:`31/Dec/1986:19:40:00 +0300`.
+
    * - :samp:`uri`
      - Request target `path
-       <https://datatracker.ietf.org/doc/html/rfc7230#section-5.3>`_ without
-       the query part, normalized by resolving relative path references ("."
-       and "..") and collapsing adjacent slashes.  The value is `percent
-       decoded <https://datatracker.ietf.org/doc/html/rfc3986#section-2.1>`_:
-       Unit interpolates all percent-encoded entities in the request target
-       `path <https://datatracker.ietf.org/doc/html/rfc7230#section-5.3>`_.
+       <https://datatracker.ietf.org/doc/html/rfc3986#section-3.3>`_ *without*
+       the `query
+       <https://datatracker.ietf.org/doc/html/rfc3986#section-3.4>`__ part,
+       normalized by resolving relative path references ("." and "..") and
+       collapsing adjacent slashes.  The value is `percent decoded
+       <https://datatracker.ietf.org/doc/html/rfc3986#section-2.1>`__: Unit
+       interpolates all percent-encoded entities in the request target `path
+       <https://datatracker.ietf.org/doc/html/rfc7230#section-5.3>`__.
+
+These variables can be used with:
+
+- :samp:`pass` in :ref:`listeners <configuration-listeners>` and
+  :ref:`actions <configuration-routes-action>` to choose between routes,
+  applications, app targets, or upstreams.
+
+- :samp:`share` and :samp:`chroot` in :ref:`actions
+  <configuration-routes-action>` to control :ref:`static content serving
+  <configuration-static>`.
+
+- :samp:`location` in :samp:`return` :ref:`actions <configuration-return>` to
+  enable HTTP redirects.
+
+- :samp:`format` in the :ref:`access log <configuration-access-log>` to
+  customize Unit's log output.
 
 To reference a variable, prefix its name with the dollar sign character
 (:samp:`$`), optionally enclosing the name in curly brackets (:samp:`{}`) to
@@ -1749,6 +2020,19 @@ variable is immediately followed by these characters:
        }
    }
 
+To reference an :samp:`arg_*`, :samp:`cookie_*`, or :samp:`header_*` variable,
+add the name you need to the prefix.  A query string of
+:samp:`Type=car&Color=red` yields two variables, :samp:`$arg_Type` and
+:samp:`$arg_Color`; Unit additionally normalizes capitalization and hyphenation
+in header field names, so the :samp:`Accept-Encoding` header field can also be
+referred to as :samp:`$header_Accept_Encoding`,
+:samp:`$header_accept-encoding`, or :samp:`$header_accept_encoding`.
+
+.. note::
+
+   With multiple argument instances (think :samp:`Color=Red&Color=Blue`), the
+   rightmost occurrence is used (:samp:`Blue`).
+
 At runtime, variables are replaced by dynamically computed values (at your
 risk!).  For example, the listener above targets an entire set of routes,
 picking individual ones by HTTP verbs that the incoming requests use:
@@ -1771,71 +2055,147 @@ picking individual ones by HTTP verbs that the incoming requests use:
 
        HTTP/1.1 404 Not Found
 
-Another obvious usage is employing the URI to choose between applications:
+If you reference a non-existing variable, it is considered empty.
 
-.. code-block:: json
+.. nxt_details:: Examples
+   :hash: variables-examples
 
-   {
-       "listeners": {
-           "*:80": {
-               "pass": ":nxt_hint:`applications$uri <Note that the $uri variable value always includes a starting slash>`"
-           }
-       },
+   This configuration selects the static file location based on the requested
+   hostname; if nothing's found, it attempts to retrieve the requested file
+   from a common storage:
 
-       "applications": {
-           "blog": {
-               "root": "/path/to/blog_app/",
-               "script": "index.php"
-           },
+   .. code-block:: json
 
-           "sandbox": {
-               "type": "php",
-               "root": "/path/to/sandbox_app/",
-               "script": "index.php"
-           }
-       }
-   }
+      {
+          "listeners": {
+              "*:80": {
+                  "pass": "routes"
+              }
+          },
 
-This way, we can route requests to applications by request target URIs.  A
-different approach can route requests between applications by the :samp:`Host`
-header field received from the client:
+          "routes": [
+              {
+                  "action": {
+                      "share": [
+                          "/www/$host:nxt_hint:`$uri <Note that the $uri variable value always includes a starting slash>`",
+                          "/www/storage:nxt_hint:`$uri <Note that the $uri variable value always includes a starting slash>`"
+                      ]
+                  }
+              }
+          ]
+      }
 
-.. code-block:: json
+   Another use case is employing the URI to choose between applications:
 
-   {
-       "listeners": {
-           "*:80": {
-               "pass": "applications/$host"
-           }
-       },
+   .. code-block:: json
 
-       "applications": {
-           "localhost": {
-               "root": "/path/to/admin_section/",
-               "script": "index.php"
-           },
+      {
+          "listeners": {
+              "*:80": {
+                  "pass": "applications:nxt_hint:`$uri <Note that the $uri variable value always includes a starting slash>`"
+              }
+          },
 
-           "www.example.com": {
-               "type": "php",
-               "root": "/path/to/public_app/",
-               "script": "index.php"
-           }
-       }
-   }
+          "applications": {
+              "blog": {
+                  "root": "/path/to/blog_app/",
+                  "script": "index.php"
+              },
 
-You can combine variables as you see fit, repeating them or placing them in
-arbitrary order.  This configuration picks application targets by their names
-and request methods:
+              "sandbox": {
+                  "type": "php",
+                  "root": "/path/to/sandbox_app/",
+                  "script": "index.php"
+              }
+          }
+      }
 
-.. code-block:: json
+   This way, we can route requests to applications by the requests' target
+   URIs:
 
-   {
-       "listeners": {
-           "*:80": {
-               "pass": "applications/app${uri}_${method}"
-           }
-       }
-   }
+   .. code-block:: console
+
+         $ curl http://localhost/blog     # Targets the 'blog' app
+         $ curl http://localhost/sandbox  # Targets the 'sandbox' app
+
+   A different approach can dispatch requests by the :samp:`Host` header field
+   received from the client:
+
+   .. code-block:: json
+
+      {
+          "listeners": {
+              "*:80": {
+                  "pass": "applications/$host"
+              }
+          },
+
+          "applications": {
+              "localhost": {
+                  "root": "/path/to/admin_section/",
+                  "script": "index.php"
+              },
+
+              "www.example.com": {
+                  "type": "php",
+                  "root": "/path/to/public_app/",
+                  "script": "index.php"
+              }
+          }
+      }
+
+   You can use multiple variables in a string, repeating and placing them
+   arbitrarily.  This configuration picks an app target (supported for
+   :ref:`PHP <configuration-php-targets>` and :ref:`Python
+   <configuration-python-targets>` apps) based on the requested hostname and
+   URI:
+
+   .. code-block:: json
+
+      {
+          "listeners": {
+              "*:80": {
+                  "pass": "applications/app_$host:nxt_hint:`$uri <Note that the $uri value doesn't include the request's query part>`"
+              }
+          }
+      }
+
+   At runtime, a request for :samp:`example.com/myapp` is passed to
+   :samp:`applications/app_example.com/myapp`.
+
+   To select a share directory based on an :samp:`app_session` cookie:
+
+   .. code-block:: json
+
+      {
+          "action": {
+              "share": "/data/www/$cookie_app_session"
+          }
+      }
+
+   Here, if :samp:`$uri` in :samp:`share` resolves to a directory, the choice
+   of an index file to be served is dictated by :samp:`index`:
+
+   .. code-block:: json
+
+      {
+          "action": {
+              "share": "/www/data:nxt_hint:`$uri <Note that the $uri variable value always includes a starting slash>`",
+              "index": "index.htm"
+          }
+      }
+
+   Here, a redirect uses the :samp:`$request_uri` variable value to relay the
+   request, *including* the query part, to the same website over HTTPS:
+
+   .. code-block:: json
+
+      {
+          "action": {
+              "return": 301,
+              "location": "https://$host$request_uri"
+          }
+      }
 
 
 .. _configuration-return:
@@ -1845,7 +2205,7 @@ Instant Responses, Redirects
 ****************************
 
 You can use route step :ref:`actions <configuration-routes-action>` to
-instantly respond to certain conditions with arbitrary HTTP `status codes
+instantly respond to certain conditions with arbitrary `HTTP status codes
 <https://datatracker.ietf.org/doc/html/rfc7231#section-6>`__:
 
 .. code-block:: json
@@ -1886,6 +2246,39 @@ If you specify a redirect code (3xx), supply the destination using the
        }
    }
 
+Besides enriching the response semantics, :samp:`return` simplifies allow-deny
+lists: instead of guarding each action with a filter, add :ref:`conditions
+<configuration-routes-matching>` to deny unwanted requests as early as possible,
+for example:
+
+.. code-block:: json
+
+    "routes": [
+        {
+            "match": {
+                "scheme": "http"
+            },
+
+            "action": {
+                "return": 403
+            }
+        },
+        {
+            "match": {
+                "source": [
+                    "!192.168.1.0/24",
+                    "!2001:0db8::/32",
+                    "192.168.1.1",
+                    "10.1.1.0/16"
+                ],
+            },
+
+            "action": {
+                "return": 403
+            }
+        }
+    ]
+
 
 .. _configuration-static:
 
@@ -1893,16 +2286,65 @@ If you specify a redirect code (3xx), supply the destination using the
 Static Files
 ************
 
-Unit is capable of acting as a standalone web server, serving requests for
-static assets from directories you configure; to use the feature, supply the
-directory path in the :samp:`share` option of a route step :ref:`action
-<configuration-routes-action>`:
+Unit is capable of acting as a standalone web server, efficiently serving
+static files from the local file system; to use the feature, list the file
+paths in the :samp:`share` option of a route step :ref:`action
+<configuration-routes-action>`.
+
+A :samp:`share`-based action provides the following options:
+
+.. list-table::
+
+   * - :samp:`share` (required)
+     - String or array of strings, listing file paths that are tried until a
+       file is found.  When no file is found, :samp:`fallback` is used if set.
+
+       The value is :ref:`variable <configuration-variables>`-interpolated.
+
+   * - :samp:`index`
+     - Filename to be tried if :samp:`share` is a directory.  When no file is
+       found, :samp:`fallback` is used if set.
+
+       The default is :file:`index.html`.
+
+   * - :samp:`fallback`
+     - Action-like :ref:`object <configuration-fallback>`, used if the
+       request can't be served by :samp:`share` or :samp:`index`.
+
+   * - :samp:`types`
+     - :ref:`Array <configuration-share-mime>` of `MIME type
+       <https://www.iana.org/assignments/media-types/media-types.xhtml>`__
+       patterns, used to filter the shared files.
+
+   * - :samp:`chroot`
+     - Directory pathname that :ref:`restricts <configuration-share-path>`
+       the shareable paths.
+
+       The value is :ref:`variable <configuration-variables>`-interpolated.
+
+   * - :samp:`follow_symlinks`, :samp:`traverse_mounts`
+     - Booleans, enable or disable symbolic link and mount point
+       :ref:`resolution <configuration-share-resolution>` respectively; if
+       :samp:`chroot` is set, they only :ref:`affect <configuration-share-path>`
+       the insides of :samp:`chroot`.
+
+       The default for both options is :samp:`true` (resolve links and mounts).
+
+.. note::
+
+   To serve the files, Unit's router process must be able to access them; thus,
+   the account this process runs as must have proper permissions :ref:`assigned
+   <security-apps>`.  When Unit is installed from the :ref:`official packages
+   <installation-precomp-pkgs>`, the process runs as :samp:`unit:unit`; for
+   details of other installation methods, see :doc:`installation`.
+
+Consider the following configuration:
 
 .. code-block:: json
 
    {
        "listeners": {
-           "127.0.0.1:8300": {
+           "*:80": {
                "pass": "routes"
            }
         },
@@ -1910,78 +2352,77 @@ directory path in the :samp:`share` option of a route step :ref:`action
        "routes": [
            {
                "action": {
-                   "share": "/www/data/static/"
+                   "share": "/www/static/$uri"
                }
            }
        ]
    }
 
-The :samp:`share` action provides the following options:
+It uses :ref:`variable interpolation <configuration-variables>`: Unit replaces
+the :samp:`$uri` reference with its current value and tries the resulting path.
+If it doesn't yield a servable file, a 404 "Not Found" response is returned.
 
-.. list-table::
+.. warning::
 
-   * - :samp:`share` (required)
-     - Directory pathname from where the static files are served.
+   Before version 1.26.0, Unit used :samp:`share` as the document root.  This
+   was changed for flexibility, so now :samp:`share` must resolve to specific
+   files.  A common solution is to append :samp:`$uri` to your document root.
 
-   * - :samp:`fallback`
-     - Action-like :ref:`object <configuration-fallback>`, used if the
-       requested file can't be served.
+   In fact, if you update an existing Unit instance to 1.26+, its shares are
+   automatically amended in this manner.  Pre-1.26, the snippet above would've
+   looked like this:
 
-   * - :samp:`types`
-     - Array of :ref:`MIME type <configuration-share-mime>` patterns, used
-       to filter the shared files.
+   .. code-block:: json
 
-   * - :samp:`chroot`
-     - Directory pathname that becomes the share's new
-       :ref:`root <configuration-share-path>`.
+      "action": {
+          "share": "/www/static/"
+      }
 
-   * - :samp:`follow_symlinks`, :samp:`traverse_mounts`
-     - Booleans, enable or disable symbolic link and mount point
-       :ref:`resolution <configuration-share-resolution>` respectively; if
-       :samp:`chroot` is set, their effect starts from the new
-       :ref:`root <configuration-share-path>`.
+   Mind that URI paths always start with a slash, so there's no need to
+   separate the directory from :samp:`$uri`; even if you do, Unit compacts
+   adjacent slashes during path resolution, so there won't be an issue.
 
-       The default for both options is :samp:`true` (resolve links and mounts).
+If :samp:`share` is an array, its items are searched in order of appearance
+until a servable file is found:
 
-.. note::
+.. code-block:: json
 
-   To serve the assets, Unit's :nxt_hint:`router process <Not to be confused
-   with the routes configuration section>` must be able to access them; thus,
-   the account this process runs as must have proper permissions :ref:`assigned
-   <security-apps>`.  When Unit is installed from the :ref:`official packages
-   <installation-precomp-pkgs>`, the process runs as :samp:`unit:unit`; for
-   details of other installation methods, see :doc:`installation`.
+   "share": [
+       "/www/$host$uri",
+       "/www/error_pages/not_found.html"
+   ]
 
-Suppose the :file:`/www/data/static/` directory has the following structure:
+This snippet tries a :samp:`$host`-based directory first; if a suitable file
+isn't found there, the :file:`not_found.html` file is tried.  If neither is
+accessible, a 404 "Not Found" response is returned.
+
+Finally, if a file path points to a directory, Unit attempts to serve an
+:samp:`index`-indicated file from it.  Suppose we have the following directory
+structure and share configuration:
 
 .. code-block:: none
 
-   /www/data/static/
-   ├── stylesheet.css
-   ├── html
-   │   └──index.html
-   └── js files
-       └──page.js
+   /www/static/
+   ├── ...
+   └──default.html
 
-In the above configuration, you can request specific files by these URIs:
+.. code-block:: json
 
-.. code-block:: console
+   "action": {
+       "share": "/www/static$uri",
+       "index": "default.html"
+   }
 
-   $ curl http://localhost:8300/html/index.html
-   $ curl http://localhost:8300/stylesheet.css
-   $ curl http://localhost:8300/js%20files/page.js
-
-If the request URI specifies only the directory name, Unit attempts to serve an
-:file:`index.html` file from this directory but *doesn't* apply :ref:`MIME
-filtering <configuration-share-mime>`:
+The following request returns :file:`default.html` even though the file isn't
+named explicitly:
 
 .. subs-code-block:: console
 
-   $ curl -vL http://localhost:8300/html/
+   $ curl http://localhost/ -v
 
     ...
     < HTTP/1.1 200 OK
-    < Last-Modified: Fri, 20 Sep 2019 04:14:43 GMT
+    < Last-Modified: Fri, 20 Sep 2021 04:14:43 GMT
     < ETag: "5d66459d-d"
     < Content-Type: text/html
     < Server: Unit/|version|
@@ -2000,16 +2441,17 @@ filtering <configuration-share-mime>`:
 MIME Filtering
 ==============
 
-To filter the files a :samp:`share` serves by their :ref:`MIME types
-<configuration-mime>`, define a :samp:`types` array of string patterns.
-They work like :ref:`route patterns <configuration-routes-matching-patterns>`
-but are matched to the MIME type of each file; the request is served only if
-it's a :ref:`match <configuration-routes-matching-resolution>`:
+To filter the files a :samp:`share` serves by their `MIME types
+<https://www.iana.org/assignments/media-types/media-types.xhtml>`__, define a
+:samp:`types` array of string patterns.  They work like :ref:`route patterns
+<configuration-routes-matching-patterns>` but are matched to the MIME type of
+each file; the request is served only if it's a :ref:`match
+<configuration-routes-matching-resolution>`:
 
 .. code-block:: json
 
    {
-       "share": "/www/data/static/",
+       "share": "/www/data/static$uri",
        "types": [
            "!text/javascript",
            "!text/css",
@@ -2032,11 +2474,14 @@ to restrict all file types :ref:`unknown <configuration-mime>` to Unit:
 .. code-block:: json
 
    {
-       "share": "/www/data/known-types-only/",
+       "share": "/www/data/known-types-only$uri",
        "types": [
            "!"
        ]
    }
+
+If a share path specifies only the directory name, Unit *doesn't* apply
+MIME filtering.
 
 
 .. _configuration-share-path:
@@ -2050,102 +2495,106 @@ Path Restrictions
    To provide these options, Unit must be built and run on a system with Linux
    kernel version 5.6+.
 
-The :samp:`chroot` option effectively confines path resolution of files served
-from a share to a new root directory.  One notable effect of enabling
-:samp:`chroot` is that symbolic links to absolute pathnames are treated as
-relative to the new root; thus, a symlink to :file:`/log/app.log` in this
-example is resolved as :file:`/www/data/log/app.log`:
+The :samp:`chroot` option confines the path resolution within a share to a
+certain directory.  First, it affects symbolic links: any attempts to go up the
+directory tree with relative symlinks like :samp:`../../var/log` stop at the
+:samp:`chroot` directory, and absolute symlinks are treated as relative to this
+directory to avoid breaking out:
 
 .. code-block:: json
 
    {
        "action": {
-           "share": "/www/data/static/",
+           "share": "/www/data$uri",
            "chroot": ":nxt_hint:`/www/data/ <Now, any paths accessible via the share are confined to this directory>`"
        }
    }
 
-The :samp:`share` path stays as is and won't be treated as relative; only the
-portions that occur after the new root (if any) are affected by the new
-behavior.  Moreover, any requests for files outside the new root will fail:
+Here, a request for :file:`/log` initially resolves to :file:`/www/data/log`;
+however, if that's an absolute symlink to :file:`/var/log/app.log`, the
+resulting path is :file:`/www/data/var/log/app.log`.
+
+Another effect is that any requests for paths that resolve outside the
+:samp:`chroot` directory are forbidden:
 
 .. code-block:: json
 
    {
        "action": {
-           "share": "/www/",
+           "share": "/www$uri",
            "chroot": ":nxt_hint:`/www/data/ <Now, any paths accessible via the share are confined to this directory>`"
        }
-   }
+  }
 
-In this configuration, a request for :samp:`/index.xml` will result in status
-code 403 because it will be resolved as :samp:`/www/index.xml`, which is
-outside the new root.
+Here, a request for :samp:`/index.xml` elicits a 403 "Forbidden" response
+because it resolves to :samp:`/www/index.xml`, which is outside :samp:`chroot`.
 
 .. _configuration-share-resolution:
 
 The :samp:`follow_symlinks` and :samp:`traverse_mounts` options disable
-resolution of symbolic links and traversal of mount points when set to
-:samp:`false` (both default to :samp:`true`):
+resolution of symlinks and traversal of mount points when set to :samp:`false`
+(both default to :samp:`true`):
 
 .. code-block:: json
 
    {
        "action": {
-           "share": "/www/data/static/",
+           "share": "/www/$host/static$uri",
            "follow_symlinks": :nxt_hint:`false <Disables symlink traversal>`,
            "traverse_mounts": :nxt_hint:`false <Disables mount point traversal>`
        }
    }
 
-Here, any request that involves a symlink or a mount point inside
-:file:`/www/data/static/` will fail; also, if a portion of the :samp:`share`
-path is a symlink or a mount point, this configuration will be accepted but
-won't work.
+Here, any symlink or mount point in the entire :samp:`share` path will result
+in a 403 "Forbidden" response.
 
 With :samp:`chroot` set, :samp:`follow_symlinks` and :samp:`traverse_mounts`
-only affect portions of the path after the new root:
+only affect portions of the path after :samp:`chroot`:
 
 .. code-block:: json
 
    {
        "action": {
-           "share": "/www/data/static/",
-           "chroot": "/www/data/",
+           "share": "/www/$host/static$uri",
+           "chroot": "/www/$host/",
            "follow_symlinks": false,
            "traverse_mounts": false
        }
    }
 
-Here, :file:`www/` and :samp:`data/` can be symlinks or mount points, but any
-symlinks and mount points beyond them, including the :file:`static/` portion,
-won't be resolved.
+Here, :file:`www/` and interpolated :samp:`$host` can be symlinks or mount
+points, but any symlinks and mount points beyond them, including the
+:file:`static/` portion, won't be resolved.
 
 .. nxt_details:: Details
+   :hash: chroot-details
 
    Suppose you want to serve files from a share that itself includes a symlink
-   (say, :file:`data/` in our example) but disable any symlinks inside the
-   share.  Initial configuration:
+   (let's assume :samp:`$host` always resolves to :samp:`localhost` and make it
+   a symlink in our example) but disable any symlinks inside the share.
+
+   Initial configuration:
 
    .. code-block:: json
 
       {
           "action": {
-              "share": "/www/data/static/",
-              "chroot": ":nxt_hint:`/www/data/ <Now, any paths accessible via the share are confined to this directory>`"
+              "share": "/www/$host/static$uri",
+              "chroot": ":nxt_hint:`/www/$host/ <Now, any paths accessible via the share are confined to this directory>`"
           }
       }
 
-   Let's create a symlink to :file:`/www/data/static/index.html`:
+   Create a symlink to :file:`/www/localhost/static/index.html`:
 
    .. code-block:: console
 
-      $ cat > /www/data/static/index.html <<EOF
+      $ mkdir -p /www/localhost/static/ && cd /www/localhost/static/
+      $ cat > index.html << EOF
 
             > index.html
             > EOF
 
-      $ ln -s index.html /www/data/static/symlink
+      $ ln -s index.html /www/localhost/static/symlink
 
    If symlink resolution is enabled (with or without :samp:`chroot`), a request
    that targets the symlink works:
@@ -2160,19 +2609,19 @@ won't be resolved.
 
             index.html
 
-   Let's set :samp:`follow_symlinks` to :samp:`false`:
+   Now set :samp:`follow_symlinks` to :samp:`false`:
 
    .. code-block:: json
 
       {
           "action": {
-              "share": "/www/data/static/",
-              "chroot": ":nxt_hint:`/www/data/ <Now, any paths accessible via the share are confined to this directory>`",
+              "share": "/www/$host/static$uri",
+              "chroot": ":nxt_hint:`/www/$host/ <Now, any paths accessible via the share are confined to this directory>`",
               "follow_symlinks": false
           }
       }
 
-   Now the symlink request fails, which is the desired effect:
+   The symlink request is forbidden, which is presumably the desired effect:
 
    .. code-block:: console
 
@@ -2184,19 +2633,19 @@ won't be resolved.
 
             <!DOCTYPE html><title>Error 403</title><p>Error 403.
 
-   Lastly, what difference does :samp:`chroot` make?  Let's remove it:
+   Lastly, what difference does :samp:`chroot` make?  To see, remove it:
 
    .. code-block:: json
 
       {
           "action": {
-              "share": "/www/data/static/",
+              "share": "/www/$host/static$uri",
               "follow_symlinks": false
           }
       }
 
-   This request fails because :samp:`"follow_symlinks": false` affects the
-   entire share, and :samp:`data/` is a symlink:
+   Now, :samp:`"follow_symlinks": false` affects the entire share, and
+   :samp:`localhost` is a symlink, so it's forbidden:
 
    .. code-block:: console
 
@@ -2219,7 +2668,7 @@ served from the :samp:`share` path:
 .. code-block:: json
 
    {
-       "share": "/www/data/static/",
+       "share": "/www/data/static$uri",
        "fallback": {
            "pass": "applications/php"
        }
@@ -2229,8 +2678,8 @@ Serving a file can be impossible for different reasons, such as:
 
 - The request's HTTP method isn't :samp:`GET` or :samp:`HEAD`.
 
-- The file's :ref:`MIME type <configuration-share-mime>` doesn't match the
-  :samp:`types` array.
+- The file's MIME type doesn't match the :samp:`types` :ref:`array
+  <configuration-share-mime>`.
 
 - The file isn't found at the :samp:`share` path.
 
@@ -2247,21 +2696,23 @@ If the :samp:`fallback` itself is a :samp:`share`, it can also contain a nested
 .. code-block:: json
 
    {
-       "share": "/www/data/static/",
+       "share": "/www/data/static$uri",
        "fallback": {
-           "share": "/www/data/cache/",
+           "share": "/www/cache$uri",
+           "chroot": "/www/",
            "fallback": {
                "proxy": "http://127.0.0.1:9000"
            }
        }
    }
 
-First, this configuration tries to serve the request from the
-:file:`/www/data/static/` directory; on failure, it queries the
-:file:`/www/data/cache/` path.  Only if both attempts fail, the request is
-proxied to an external server.
+The first :samp:`share` tries to serve the request from
+:file:`/www/data/static/`; on failure, the second :samp:`share` tries the
+:file:`/www/cache/` path with :samp:`chroot` enabled.  If both attempts fail,
+the request is proxied elsewhere.
 
 .. nxt_details:: Examples
+   :hash: conf-variable-examples
 
    One common use case that this feature enables is the separation of requests
    for static and dynamic content into independent routes.  The following
@@ -2283,7 +2734,7 @@ proxied to an external server.
               },
               {
                   "action": {
-                      "share": "/www/php-app/assets/files/",
+                      "share": "/www/php-app/assets/files$uri",
                       "fallback": {
                           "proxy": "http://127.0.0.1:9000"
                       }
@@ -2321,7 +2772,7 @@ proxied to an external server.
                   },
 
                   "action": {
-                      "share": "/www/php-app/assets/files/",
+                      "share": "/www/php-app/assets/files$uri",
                       "fallback": {
                           "proxy": "http://127.0.0.1:9000"
                       }
@@ -2361,10 +2812,11 @@ proxied to an external server.
           },
 
           "action": {
-              "share": "/www/php-app/assets/files/",
+              "share": "/www/php-app/assets/files$uri",
               "types": [
                   "image/*"
               ],
+
               "fallback": {
                   "proxy": "http://127.0.0.1:9000"
               }
@@ -2377,10 +2829,11 @@ proxied to an external server.
    .. code-block:: json
 
       {
-          "share": "/www/php-app/assets/files/",
+          "share": "/www/php-app/assets/files$uri",
           "types": [
               "!application/x-httpd-php"
           ],
+
           "fallback": {
               "pass": "applications/php-app"
           }
@@ -2434,7 +2887,7 @@ option of a route step :ref:`action <configuration-routes-action>`:
        ]
    }
 
-As the example above suggests, you can use Unix, IPv4, and IPv6 socket
+As the example above suggests, you can use UNIX, IPv4, and IPv6 socket
 addresses for proxy destinations.
 
 .. note::
@@ -2469,7 +2922,7 @@ API:
        "upstreams": {
            ":nxt_hint:`rr-lb <Upstream object>`": {
                ":nxt_hint:`servers <Lists individual servers as object-valued options>`": {
-                   ":nxt_hint:`192.168.0.100:8080 <Empty object needed due to JSON requirements>`": { },
+                   ":nxt_hint:`192.168.0.100:8080 <Empty object needed due to JSON requirements>`": {},
                    "192.168.0.101:8080": {
                        "weight": 0.5
                    }
@@ -2495,9 +2948,11 @@ notation:
            "192.168.0.100:8080": {
                ":nxt_hint:`weight <All three values are equal>`": 1e1
            },
+
            "192.168.0.101:8080": {
                ":nxt_hint:`weight <All three values are equal>`": 10.0
            },
+
            "192.168.0.102:8080": {
                ":nxt_hint:`weight <All three values are equal>`": 10
            }
@@ -2584,8 +3039,8 @@ App objects have a number of options shared between all application languages:
 
     * - :samp:`user`
       - Username that runs the app process.  If not set, the username
-        configured at :ref:`build time <installation-config-src>` or :ref:`at
-        startup <installation-src-startup>` to run Unit's non-privileged
+        configured at :ref:`build time <source-config-src>` or :ref:`at
+        startup <source-startup>` to run Unit's non-privileged
         :ref:`processes <security-apps>` is used.
 
     * - :samp:`group`
@@ -2595,9 +3050,8 @@ App objects have a number of options shared between all application languages:
     * - :samp:`environment`
       - Environment variables to be passed to the application.
 
-Also, you need to set :samp:`type`-specific :ref:`options
-<configuration-languages>` to run the app.  This :ref:`Python app
-<configuration-python>` uses :samp:`path` and :samp:`module`:
+Also, you need to set :samp:`type`-specific options to run the app.  This
+:ref:`Python app <configuration-python>` uses :samp:`path` and :samp:`module`:
 
 .. code-block:: json
 
@@ -2653,7 +3107,7 @@ if Unit's underlying OS supports them:
 
    $ ls /proc/self/ns/
 
-       cgroup  ipc  mnt  net  pid  ...  user  uts
+       cgroup :nxt_hint:`mnt <The mount namespace>` :nxt_hint:`net <The network namespace>` pid ... :nxt_hint:`user <The credential namespace>` :nxt_hint:`uts <The uname namespace>`
 
 The :samp:`isolation` application option has the following members:
 
@@ -2672,32 +3126,32 @@ The :samp:`isolation` application option has the following members:
 
           * - :samp:`cgroup`
             - Creates a new `cgroup
-              <http://man7.org/linux/man-pages/man7/cgroup_namespaces.7.html>`_
+              <https://man7.org/linux/man-pages/man7/cgroup_namespaces.7.html>`_
               namespace for the app.
 
           * - :samp:`credential`
             - Creates a new `user
-              <http://man7.org/linux/man-pages/man7/user_namespaces.7.html>`_
+              <https://man7.org/linux/man-pages/man7/user_namespaces.7.html>`_
               namespace for the app.
 
           * - :samp:`mount`
             - Creates a new `mount
-              <http://man7.org/linux/man-pages/man7/mount_namespaces.7.html>`_
+              <https://man7.org/linux/man-pages/man7/mount_namespaces.7.html>`_
               namespace for the app.
 
           * - :samp:`network`
             - Creates a new `network
-              <http://man7.org/linux/man-pages/man7/network_namespaces.7.html>`_
+              <https://man7.org/linux/man-pages/man7/network_namespaces.7.html>`_
               namespace for the app.
 
           * - :samp:`pid`
             - Creates a new `PID
-              <http://man7.org/linux/man-pages/man7/pid_namespaces.7.html>`_
+              <https://man7.org/linux/man-pages/man7/pid_namespaces.7.html>`_
               namespace for the app.
 
           * - :samp:`uname`
             - Creates a new `UTS
-              <http://man7.org/linux/man-pages/man7/namespaces.7.html>`_
+              <https://man7.org/linux/man-pages/man7/namespaces.7.html>`_
               namespace for the app.
 
        All options listed above are Boolean; to isolate the app, set the
@@ -2706,8 +3160,8 @@ The :samp:`isolation` application option has the following members:
 
    * - :samp:`uidmap`
      - Array of `ID mapping
-       <http://man7.org/linux/man-pages/man7/user_namespaces.7.html>`_ objects;
-       each array item must define the following:
+       <https://man7.org/linux/man-pages/man7/user_namespaces.7.html>`_
+       objects; each array item must define the following:
 
        .. list-table::
 
@@ -2783,6 +3237,7 @@ for user and group IDs:
     }
 
 .. nxt_details:: Using Uidmap And Gidmap
+   :hash: conf-uidgid-mapping
 
    The :samp:`uidmap` and :samp:`gidmap` options are available only if the
    underlying OS supports user namespaces.
@@ -2812,6 +3267,7 @@ for user and group IDs:
           "namespaces": {
               "credential": true
           },
+
           "uidmap": [
               {
                   "host": "1000",
@@ -2867,7 +3323,7 @@ stays operational:
    * - Java
      - - JVM's :file:`libc.so` directory
 
-       - Java module's :ref:`home <installation-modules-java>` directory
+       - Java module's :ref:`home <howto/source-modules-java>` directory
 
    * - Python
      - Python's :samp:`sys.path` `directories
@@ -2986,9 +3442,69 @@ idles after 20 seconds:
 Go
 ==
 
-To run your Go apps on Unit, you need to configure them `and` modify their
-source code as suggested below.  Let's start with the app configuration;
-besides :ref:`common options <configuration-apps-common>`, you have:
+To run a Go app on Unit, modify its source to make it Unit-aware and rebuild
+the app.
+
+.. nxt_details:: Updating Go Apps to Run on Unit
+   :hash: updating-go-apps
+
+   In the :samp:`import` section, list the :samp:`unit.nginx.org/go` package:
+
+   .. code-block:: go
+
+      import (
+          ...
+          "unit.nginx.org/go"
+          ...
+      )
+
+   Replace the :samp:`http.ListenAndServe` call with
+   :samp:`unit.ListenAndServe`:
+
+   .. code-block:: go
+
+      func main() {
+          ...
+          http.HandleFunc("/", handler)
+          ...
+          // http.ListenAndServe(":8080", nil)
+          unit.ListenAndServe(":8080", nil)
+          ...
+      }
+
+   If you haven't done so yet, initialize the Go module for your app:
+
+   .. code-block:: console
+
+      $ go mod init :nxt_ph:`example.com/app <Arbitrary module designation>`
+
+            go: creating new go.mod: module example.com/app
+
+   Install the newly added dependency and build your application:
+
+   .. subs-code-block:: console
+
+      $ go get unit.nginx.org/go@|version|
+
+            go: downloading unit.nginx.org
+
+      $ go build -o :nxt_ph:`app <Executable name>` :nxt_ph:`app.go <Application source code>`
+
+   If you update Unit to a newer version, repeat the two commands above to
+   rebuild your app.
+
+   The resulting executable works as follows:
+
+   - When you run it standalone, the :samp:`unit.ListenAndServe` call falls
+     back to :samp:`http` functionality.
+
+   - When Unit runs it, :samp:`unit.ListenAndServe` communicates with Unit's
+     router process directly, ignoring the address supplied as its first
+     argument and relying on the :ref:`listener's settings
+     <configuration-listeners>` instead.
+
+Next, configure the app in Unit; besides :ref:`common options
+<configuration-apps-common>`, you have:
 
 .. list-table::
     :header-rows: 1
@@ -3015,56 +3531,11 @@ Example:
        "executable": "bin/chat_app",
        "user": "www-go",
        "group": "www-go",
-       "arguments": ["--tmp-files", "/tmp/go-cache"]
+       "arguments": [
+           "--tmp-files",
+           "/tmp/go-cache"
+       ]
    }
-
-Before applying the configuration, update the application source code:
-
-
-In the :samp:`import` section, reference the :samp:`unit.nginx.org/go` package
-that you :ref:`installed <installation-precomp-pkgs>` or :ref:`built
-<installation-modules-go>` earlier:
-
-.. code-block:: go
-
-   import (
-       ...
-       "unit.nginx.org/go"
-       ...
-   )
-
-.. note::
-
-   The package is required only to build the app; there's no need to
-   install it in the target environment.
-
-In the :samp:`main()` function, replace the :samp:`http.ListenAndServe` call
-with :samp:`unit.ListenAndServe`:
-
-.. code-block:: go
-
-   func main() {
-       ...
-       http.HandleFunc("/", handler)
-       ...
-       //http.ListenAndServe(":8080", nil)
-       unit.ListenAndServe(":8080", nil)
-       ...
-   }
-
-The resulting application works as follows:
-
-- When you run it standalone, the :samp:`unit.ListenAndServe` call falls
-  back to :samp:`http` functionality.
-
-- When Unit runs it, :samp:`unit.ListenAndServe` communicates with Unit's
-  router process directly, ignoring the address supplied as its first
-  argument and relying on the :ref:`listener's settings
-  <configuration-listeners>` instead.
-
-If you update Unit later, update the Go package as well according to your
-:ref:`installation method <installation-go-package>`.  You'll also need to
-rebuild your app with the updated package.
 
 .. note::
 
@@ -3100,6 +3571,10 @@ following:
     * - :samp:`options`
       - Array of strings defining JVM runtime options.
 
+        Unit itself exposes the :samp:`-Dnginx.unit.context.path` option that
+        defaults to :file:`/`; use it to customize the `context path
+        <https://javaee.github.io/javaee-spec/javadocs/javax/servlet/ServletContext.html#getContextPath-->`__.
+
     * - :samp:`threads`
       - Integer that sets the number of worker threads per app process.  When
         started, each app process creates a corresponding number of threads to
@@ -3121,8 +3596,14 @@ Example:
 
    {
        "type": "java",
-       "classpath": ["/www/qwk2mart/lib/qwk2mart-2.0.0.jar"],
-       "options": ["-Dlog_path=/var/log/qwk2mart.log"],
+       "classpath": [
+           "/www/qwk2mart/lib/qwk2mart-2.0.0.jar"
+       ],
+
+       "options": [
+           "-Dlog_path=/var/log/qwk2mart.log"
+       ],
+
        "webapp": "/www/qwk2mart/qwk2mart.war"
    }
 
@@ -3223,6 +3704,7 @@ depending on your version of Node.js:
              ]
          }
 
+
    .. tab:: 14.15.x and earlier
 
       .. code-block:: json
@@ -3258,8 +3740,8 @@ To use the WebSocket protocol, your app only needs to replace the default
 
 .. note::
 
-   For Node.js-based examples, see our :doc:`howto/express` and
-   :ref:`Docker <docker-apps>` howtos or a basic :ref:`sample
+   For Node.js-based examples, see our :doc:`howto/express`, :doc:`howto/koa`,
+   and :ref:`Docker <docker-apps>` howtos or a basic :ref:`sample
    <sample-nodejs>`.
 
 
@@ -3378,16 +3860,23 @@ You can customize :file:`php.ini` via the :samp:`options` object:
 
     * - :samp:`file`
       - Pathname of the :file:`php.ini` file with `PHP configuration directives
-        <https://php.net/manual/en/ini.list.php>`_.
+        <https://www.php.net/manual/en/ini.list.php>`_.
 
     * - :samp:`admin`, :samp:`user`
       - Objects for extra directives.  Values in :samp:`admin` are set in
         :samp:`PHP_INI_SYSTEM` mode, so the app can't alter them; :samp:`user`
         values are set in :samp:`PHP_INI_USER` mode and may `be updated
-        <https://php.net/manual/en/function.ini-set.php>`_ in runtime.
+        <https://www.php.net/manual/en/function.ini-set.php>`_ in runtime.
 
-Directives from :file:`php.ini` are overridden by settings supplied in
-:samp:`admin` and :samp:`user` objects.
+        - The objects override the settings from any :file:`*.ini` files
+
+        - The :samp:`admin` object can only set what's `listed
+          <https://www.php.net/manual/en/ini.list.php>`__ as
+          :samp:`PHP_INI_SYSTEM`; for other modes, set :samp:`user`
+
+        - Neither :samp:`admin` nor :samp:`user` can set directives listed as
+          `php.ini only <https://www.php.net/manual/en/ini.list.php>`__ except
+          for :samp:`disable_classes` and :samp:`disable_functions`
 
 .. note::
 
@@ -3395,7 +3884,7 @@ Directives from :file:`php.ini` are overridden by settings supplied in
    :samp:`"max_file_uploads": "4"`, not :samp:`"max_file_uploads": 4`); for
    boolean flags, use :samp:`"0"` and :samp:`"1"` only.  For details about
    :samp:`PHP_INI_*` modes, see the `PHP docs
-   <https://php.net/manual/en/configuration.changes.modes.php>`_.
+   <https://www.php.net/manual/en/configuration.changes.modes.php>`_.
 
 .. note::
 
@@ -3413,14 +3902,13 @@ Example:
        "root": "/www/blogs/scripts/",
        "user": "www-blogs",
        "group": "www-blogs",
-
        "options": {
            "file": "/etc/php.ini",
            "admin": {
                "memory_limit": "256M",
-               "variables_order": "EGPCS",
-               "expose_php": "0"
+               "variables_order": "EGPCS"
            },
+
            "user": {
                "display_errors": "0"
            }
@@ -3499,10 +3987,11 @@ App-wide settings (:samp:`isolation`, :samp:`limits`, :samp:`options`,
 
    For PHP-based examples, see our :doc:`howto/cakephp`,
    :doc:`howto/codeigniter`, :doc:`howto/dokuwiki`, :doc:`howto/drupal`,
-   :doc:`howto/laravel`, :doc:`howto/matomo`, :doc:`howto/mediawiki`,
-   :doc:`howto/modx`, :doc:`howto/nextcloud`, :doc:`howto/phpbb`,
-   :doc:`howto/symfony`, :doc:`howto/wordpress`, and :doc:`howto/yii` howtos or
-   a basic :ref:`sample <sample-php>`.
+   :doc:`howto/laravel`, :doc:`howto/lumen`, :doc:`howto/matomo`,
+   :doc:`howto/mediawiki`, :doc:`howto/modx`, :doc:`howto/nextcloud`,
+   :doc:`howto/phpbb`, :doc:`howto/roundcube`, :doc:`howto/symfony`,
+   :doc:`howto/wordpress`, and :doc:`howto/yii` howtos or a basic :ref:`sample
+   <sample-php>`.
 
 
 .. _configuration-python:
@@ -3540,9 +4029,32 @@ following:
 
         .. note::
 
-           The Python version used to run the app depends on the :samp:`type`
-           value; Unit ignores the command-line interpreter from the virtual
-           environment for performance considerations.
+           The Python version used to run the app depends on :samp:`type`; for
+           performance, Unit doesn't use the command-line interpreter from the
+           virtual environment.
+
+        .. nxt_details:: ImportError: No module named 'encodings'
+           :hash: encodings-error
+
+           Seeing this in Unit's :ref:`log <troubleshooting-log>` after you set
+           up :samp:`home` for your app?  This usually occurs if the
+           interpreter can't use the virtual environment, possible reasons
+           including:
+
+           - Version mismatch between the :samp:`type` setting and the virtual
+             environment; check the environment's version:
+
+             .. code-block:: console
+
+                $ source :nxt_ph:`/path/to/venv/ <Path to the virtual environment; use a real path in your commands>`bin/activate
+                (venv) $ python --version
+
+           - Unit's unprivileged user (usually :samp:`unit`) having no access
+             to the environment's files; assign the necessary rights:
+
+             .. code-block:: console
+
+                # chown -R :nxt_hint:`unit:unit <User and group that Unit's router runs as by default>` :nxt_ph:`/path/to/venv/ <Path to the virtual environment; use a real path in your commands>`
 
     * - :samp:`path`
       - String or array of strings that represent additional Python module
@@ -3579,14 +4091,21 @@ Example:
    {
        "type": "python",
        "processes": 10,
-       "working_directory": "/www/store/",
-       "path": "/www/store/cart/",
-       "home": "/www/store/.virtualenv/",
-       "module": "wsgi",
+       "working_directory": "/www/store/cart/",
+       "path": ":nxt_hint:`/www/store/ <Added to sys.path for lookup; store the application module within this directory>`",
+       "home": ":nxt_hint:`.virtualenv/ <Path where the virtual environment is located; here, it's relative to the working directory>`",
+       "module": ":nxt_hint:`cart.run <Looks for a 'run.py' module in /www/store/cart/>`",
        "callable": "app",
        "user": "www",
        "group": "www"
    }
+
+This snippet runs the :samp:`app` callable from the
+:file:`/www/store/cart/run.py` module with :file:`/www/store/cart/` as the
+working directory and :file:`/www/store/.virtualenv/` as the virtual
+environment; the :samp:`path` value accommodates for situations when some
+modules of the application are imported from outside the :file:`cart/`
+subdirectory.
 
 .. _configuration-python-asgi:
 
@@ -3700,12 +4219,12 @@ The :samp:`home`, :samp:`path`, :samp:`protocol`, :samp:`threads`, and
 
    For Python-based examples, see our :doc:`howto/bottle`,
    :doc:`howto/datasette`, :doc:`howto/django`, :doc:`howto/djangochannels`,
-   :doc:`howto/fastapi`, :doc:`howto/flask`, :doc:`howto/guillotina`,
-   :doc:`howto/mercurial`, :doc:`howto/moin`, :doc:`howto/plone`,
-   :doc:`howto/pyramid`, :doc:`howto/quart`, :doc:`howto/responder`,
-   :doc:`howto/reviewboard`, :doc:`howto/sanic`, :doc:`howto/starlette`,
-   :doc:`howto/trac`, and :doc:`howto/zope` howtos or a basic :ref:`sample
-   <sample-python>`.
+   :doc:`howto/falcon`, :doc:`howto/fastapi`, :doc:`howto/flask`,
+   :doc:`howto/guillotina`, :doc:`howto/mailman`, :doc:`howto/mercurial`,
+   :doc:`howto/moin`, :doc:`howto/plone`, :doc:`howto/pyramid`,
+   :doc:`howto/quart`, :doc:`howto/responder`, :doc:`howto/reviewboard`,
+   :doc:`howto/sanic`, :doc:`howto/starlette`, :doc:`howto/trac`, and
+   :doc:`howto/zope` howtos or a basic :ref:`sample <sample-python>`.
 
 
 .. _configuration-ruby:
@@ -3868,17 +4387,20 @@ HTTP requests from the clients:
 
     * - :samp:`static`
       - Object that configures static asset handling, containing a single
-        object named :samp:`mime_types`.  In turn, :samp:`mime_types`
-        defines specific MIME types as options.  An option's value can be a
-        string or an array of strings; each string must specify a filename
-        extension or a specific filename that is included in the MIME type.
+        object named :samp:`mime_types`.  In turn, :samp:`mime_types` defines
+        specific `MIME types
+        <https://www.iana.org/assignments/media-types/media-types.xhtml>`__ as
+        options.  An option's value can be a string or an array of strings;
+        each string must specify a filename extension or a specific filename
+        that is included in the MIME type.
 
     * - :samp:`discard_unsafe_fields`
       - Controls the parsing mode of header field names.  If set to
         :samp:`true`, Unit only processes headers with names consisting of
         alphanumeric characters and hyphens (:samp:`-`); otherwise, all valid
-        `RFC 7230 <https://datatracker.ietf.org/doc/html/rfc7230#section-3.2>`_
-        header fields are processed.
+        RFC 7230 `header fields
+        <https://datatracker.ietf.org/doc/html/rfc7230#section-3.2>`_ are
+        processed.
 
         The default value is :samp:`true`.
 
@@ -3913,17 +4435,17 @@ Example:
 
 .. note::
 
-   Built-in support for MIME types includes :file:`.aac`, :file:`.apng`,
-   :file:`.atom`, :file:`.avi`, :file:`.avif`, :file:`avifs`, :file:`.bin`,
-   :file:`.css`, :file:`.deb`, :file:`.dll`, :file:`.exe`, :file:`.flac`,
-   :file:`.gif`, :file:`.htm`, :file:`.html`, :file:`.ico`, :file:`.img`,
-   :file:`.iso`, :file:`.jpeg`, :file:`.jpg`, :file:`.js`, :file:`.json`,
-   :file:`.md`, :file:`.mid`, :file:`.midi`, :file:`.mp3`, :file:`.mp4`,
-   :file:`.mpeg`, :file:`.mpg`, :file:`.msi`, :file:`.ogg`, :file:`.otf`,
-   :file:`.pdf`, :file:`.php`, :file:`.png`, :file:`.rpm`, :file:`.rss`,
-   :file:`.rst`, :file:`.svg`, :file:`.ttf`, :file:`.txt`, :file:`.wav`,
-   :file:`.webm`, :file:`.webp`, :file:`.woff2`, :file:`.woff`, :file:`.xml`,
-   and :file:`.zip`.  Built-ins can be overridden, and new types can be added:
+   Built-in MIME types are :file:`.aac`, :file:`.apng`, :file:`.atom`,
+   :file:`.avi`, :file:`.avif`, :file:`avifs`, :file:`.bin`, :file:`.css`,
+   :file:`.deb`, :file:`.dll`, :file:`.exe`, :file:`.flac`, :file:`.gif`,
+   :file:`.htm`, :file:`.html`, :file:`.ico`, :file:`.img`, :file:`.iso`,
+   :file:`.jpeg`, :file:`.jpg`, :file:`.js`, :file:`.json`, :file:`.md`,
+   :file:`.mid`, :file:`.midi`, :file:`.mp3`, :file:`.mp4`, :file:`.mpeg`,
+   :file:`.mpg`, :file:`.msi`, :file:`.ogg`, :file:`.otf`, :file:`.pdf`,
+   :file:`.php`, :file:`.png`, :file:`.rpm`, :file:`.rss`, :file:`.rst`,
+   :file:`.svg`, :file:`.ttf`, :file:`.txt`, :file:`.wav`, :file:`.webm`,
+   :file:`.webp`, :file:`.woff2`, :file:`.woff`, :file:`.xml`, and
+   :file:`.zip`.  You can override built-ins or add new types:
 
    .. code-block:: console
 
@@ -3940,8 +4462,8 @@ Example:
 Access Log
 **********
 
-To enable access logging, specify the log file path in the :samp:`access_log`
-option of the :samp:`config` object.
+To enable basic access logging, specify the log file path in the
+:samp:`access_log` option of the :samp:`config` object.
 
 In the example below, all requests will be logged to
 :file:`/var/log/access.log`:
@@ -3956,11 +4478,47 @@ In the example below, all requests will be logged to
            "success": "Reconfiguration done."
        }
 
-The log is written in the Combined Log Format.  Example of a log line:
+By default, the log is written in the `Combined Log Format
+<https://httpd.apache.org/docs/2.2/logs.html#combined>`__.  Example of a log
+line:
 
 .. code-block:: none
 
    127.0.0.1 - - [21/Oct/2015:16:29:00 -0700] "GET / HTTP/1.1" 200 6022 "http://example.com/links.html" "Godzilla/5.0 (X11; Minix i286) Firefox/42"
+
+=====================
+Custom Log Formatting
+=====================
+
+The :samp:`access_log` option can be also set to an object to customize
+both the log path and its format:
+
+.. list-table::
+    :header-rows: 1
+
+    * - Option
+      - Description
+
+    * - :samp:`path`
+      - Pathname of the access log file.
+
+    * - :samp:`format`
+      - String setting the log format; besides arbitrary text, can contain
+        any :ref:`variables <configuration-variables>` Unit supports.
+
+Example:
+
+.. code-block:: json
+
+   {
+       "access_log": {
+           "path": "/var/log/unit/access.log",
+           "format": "$remote_addr - - [$time_local] \"$request_line\" $status $body_bytes_sent \"$header_referer\" \"$header_user_agent\""
+       }
+   }
+
+By a neat coincidence, the above :samp:`format` is the default setting.  Also,
+mind that the log entry is formed *after* the request has been handled.
 
 
 .. _configuration-ssl:
@@ -4043,7 +4601,6 @@ them to a separate configuration section, aptly named :samp:`certificates`:
                            "until": "Jun 15 19:46:19 2021 GMT"
                        }
                    },
-
                    {
                        "subject": {
                            "common_name": "intermediate.ca.example.com",
@@ -4081,7 +4638,7 @@ them to a separate configuration section, aptly named :samp:`certificates`:
       # curl -X GET --unix-socket /path/to/control.unit.sock \
              http://localhost/certificates/:nxt_hint:`bundle <Certificate bundle name>`/chain/0/subject/alt_names/0/
 
-Next, :ref:`add <configuration-listeners>` the uploaded bundle to a listener;
+Next, add the uploaded bundle to a :ref:`listener <configuration-listeners>`;
 the resulting control API configuration may look like this:
 
 .. code-block:: json
@@ -4090,7 +4647,9 @@ the resulting control API configuration may look like this:
        "certificates": {
            ":nxt_ph:`bundle <Certificate bundle name>`": {
                "key": "<key type>",
-               "chain": ["<certificate chain, omitted for brevity>"]
+               "chain": [
+                   "<certificate chain, omitted for brevity>"
+               ]
            }
        },
 
@@ -4151,6 +4710,183 @@ anymore from the storage:
    delete non-existent ones.
 
 
+.. _configuration-stats:
+
+****************
+Usage Statistics
+****************
+
+Unit collects instance- and app-wide metrics, made available via the
+:samp:`GET`-only :samp:`/status` section of the API:
+
+.. list-table::
+    :header-rows: 1
+
+    * - Option
+      - Description
+
+    * - :samp:`connections`
+      - Object, lists per-instance connection statistics.
+
+    * - :samp:`requests`
+      - Object, lists per-instance request statistics.
+
+    * - :samp:`applications`
+      - Object, each option item lists per-app process and request statistics.
+
+Example:
+
+.. code-block:: json
+
+   {
+       "connections": {
+           "accepted": 1067,
+           "active": 13,
+           "idle": 4,
+           "closed": 1050
+       },
+
+       "requests": {
+           "total": 1307
+       },
+
+       "applications": {
+           "wp": {
+               "processes": {
+                   "running": 14,
+                   "starting": 0,
+                   "idle": 4
+               },
+
+               "requests": {
+                   "active": 10
+               }
+           }
+       }
+   }
+
+The :samp:`connections` object offers the following Unit instance metrics:
+
+.. list-table::
+    :header-rows: 1
+
+    * - Option
+      - Description
+
+    * - :samp:`accepted`
+      - Integer, total accepted connections during the instance's lifetime.
+
+    * - :samp:`active`
+      - Integer, current active connections for the instance.
+
+    * - :samp:`idle`
+      - Integer, current idle connections for the instance.
+
+    * - :samp:`closed`
+      - Integer, total closed connections during the instance's lifetime.
+
+Example:
+
+.. code-block:: json
+
+   "connections": {
+       "accepted": 1067,
+       "active": 13,
+       "idle": 4,
+       "closed": 1050
+   }
+
+.. note::
+
+   For details of instance connection management, refer to
+   :ref:`configuration-stngs`.
+
+The :samp:`requests` object currently exposes a single instance-wide metric:
+
+.. list-table::
+    :header-rows: 1
+
+    * - Option
+      - Description
+
+    * - :samp:`total`
+      - Integer, total non-control requests during the instance's lifetime.
+
+Example:
+
+.. code-block:: json
+
+   "requests": {
+       "total": 1307
+   }
+
+Each item in :samp:`applications` describes an app currently listed in the
+:samp:`/config/applications` :ref:`section <configuration-applications>`:
+
+.. list-table::
+    :header-rows: 1
+
+    * - Option
+      - Description
+
+    * - :samp:`processes`
+      - Object, lists per-app process statistics.
+
+    * - :samp:`requests`
+      - Object, similar to :samp:`/status/requests`, but includes only the data
+        for the specific app.
+
+Example:
+
+.. code-block:: json
+
+   "applications": {
+       "wp": {
+           "processes": {
+               "running": 14,
+               "starting": 0,
+               "idle": 4
+           },
+
+           "requests": {
+               "active": 10
+           }
+       }
+   }
+
+The :samp:`processes` object exposes the following per-app metrics:
+
+.. list-table::
+    :header-rows: 1
+
+    * - Option
+      - Description
+
+    * - :samp:`running`
+      - Integer, current running app processes.
+
+    * - :samp:`starting`
+      - Integer, current starting app processes.
+
+    * - :samp:`idle`
+      - Integer, current idle app processes.
+
+Example:
+
+.. code-block:: json
+
+   "processes": {
+       "running": 14,
+       "starting": 0,
+       "idle": 4
+   }
+
+.. note::
+
+   For details of per-app process management, refer to
+   :ref:`configuration-proc-mgmt`.
+
+
 .. _configuration-full-example:
 
 ************
@@ -4189,7 +4925,6 @@ Full Example
                            "until": "Jun 15 19:46:19 2021 GMT"
                        }
                    },
-
                    {
                        "subject": {
                            "common_name": "intermediate.ca.example.com",
@@ -4241,7 +4976,6 @@ Full Example
                            "until": "Jun 15 19:46:19 2021 GMT"
                        }
                    },
-
                    {
                        "subject": {
                            "common_name": "intermediate.ca.example.org",
@@ -4319,10 +5053,12 @@ Full Example
 
                "*:8080": {
                    "pass": "upstreams/rr-lb",
-                   "client_ip": {
-                       "header": "X-Forwarded-For",
+                   "forwarded": {
+                       "client_ip": "X-Forwarded-For",
+                       "protocol": "X-Forwarded-Proto",
                        "source": [
-                           "10.0.0.0/8"
+                           "192.0.2.0/24",
+                           "198.51.100.0/24"
                        ]
                    }
                }
@@ -4333,6 +5069,7 @@ Full Example
                    "match": {
                        "uri": "/admin/*",
                        "scheme": "https",
+                       "source": "unix",
                        "arguments": {
                            "mode": "strict",
                            "access": "!raw"
@@ -4359,7 +5096,11 @@ Full Example
                },
                {
                    "match": {
-                       "host": ["blog.example.com", "blog.*.org"],
+                       "host": [
+                           "blog.example.com",
+                           "blog.*.org"
+                       ],
+
                        "source": "*:8000-9000"
                    },
 
@@ -4370,8 +5111,15 @@ Full Example
                {
                    "match": {
                        "host": "example.com",
-                       "source": "127.0.0.0-127.0.0.255:8080-8090",
-                       "uri": "/chat/*"
+                       "source": "127.0.0.1-127.0.0.254:8080-8090",
+                       "uri": "/chat/*",
+                       "query": [
+                           "en-CA",
+                           "en-IE",
+                           "en-IN",
+                           "en-UK",
+                           "en-US"
+                       ]
                    },
 
                    "action": {
@@ -4382,8 +5130,8 @@ Full Example
                    "match": {
                        "host": "example.com",
                        "source": [
-                           "10.0.0.0/7:1000",
-                           "10.0.0.0/32:8080-8090"
+                           "198.51.100.0/24:8000",
+                           "203.0.113.0/24:8080-8090"
                        ]
                    },
 
@@ -4416,7 +5164,7 @@ Full Example
 
                    "action": {
                        "return": 301,
-                       "location": "https://legacy.example.com"
+                       "location": "https://legacy.example.com$request_uri"
                    }
                },
                {
@@ -4430,8 +5178,13 @@ Full Example
                },
                {
                    "action": {
-                       "share": "/www/data/static/",
-                       "chroot": "/www/data/",
+                       "share": [
+                           "/www/$host$uri",
+                           "/www/global_static$uri"
+                       ],
+
+                       "index": "index.htm",
+                       "chroot": "/www/data/$host/",
                        "traverse_mounts": false,
                        "follow_symlinks": false,
                        "types": [
@@ -4439,6 +5192,7 @@ Full Example
                            "video/*",
                            "application/json"
                        ],
+
                        "fallback": {
                            "proxy": "http://127.0.0.1:9000"
                        }
@@ -4544,8 +5298,13 @@ Full Example
                "store": {
                    "type": "java",
                    "webapp": "/www/store/store.war",
-                   "classpath": ["/www/store/lib/store-2.0.0.jar"],
-                   "options": ["-Dlog_path=/var/log/store.log"]
+                   "classpath": [
+                       "/www/store/lib/store-2.0.0.jar"
+                   ],
+
+                   "options": [
+                       "-Dlog_path=/var/log/store.log"
+                   ]
                },
 
                "wiki": {
@@ -4577,7 +5336,7 @@ Full Example
            "upstreams": {
                "rr-lb": {
                    "servers": {
-                       "192.168.1.100:8080": { },
+                       "192.168.1.100:8080": {},
                        "192.168.1.101:8080": {
                            "weight": 2
                        }

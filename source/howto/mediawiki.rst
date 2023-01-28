@@ -7,7 +7,7 @@
 MediaWiki
 #########
 
-To run the `MediaWiki <https://www.mediawiki.org/>`_ collaboration and
+To run the `MediaWiki <https://www.mediawiki.org>`_ collaboration and
 documentation platform using Unit:
 
 #. .. include:: ../include/howto_install_unit.rst
@@ -84,7 +84,7 @@ documentation platform using Unit:
                   },
 
                   "action": {
-                      ":nxt_hint:`share <Serves matching static files>`": ":nxt_ph:`/path/to/app/ <Path to the application directory; use a real path in your configuration>`"
+                      ":nxt_hint:`share <Serves matching static files>`": ":nxt_ph:`/path/to/app <Path to the application directory; use a real path in your configuration>`$uri"
                   }
               },
               {

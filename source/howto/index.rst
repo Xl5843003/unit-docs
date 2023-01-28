@@ -1,5 +1,6 @@
 .. meta::
-   :og:description: Run a variety of frameworks and applications, use Unit with Docker, build custom modules, and resolve other issues.
+   :og:description: Run a variety of frameworks and applications, use Unit with
+                    Docker, build custom modules, and resolve other issues.
 
 #####
 Howto
@@ -13,6 +14,7 @@ experience with Unit.
    :maxdepth: 1
 
    docker
+   source
    ansible
    integration
    certbot
@@ -23,6 +25,8 @@ experience with Unit.
 
 - :doc:`docker`: Configure a standalone Unit or a Unit-run app in a Docker
   container.
+
+- :doc:`source`: Build Unit and its language modules from source code.
 
 - :doc:`ansible`: Use a third-party Ansible collection to automate Unit
   deployment.
@@ -63,10 +67,13 @@ following frameworks:
    django
    djangochannels
    express
+   falcon
    fastapi
    flask
    guillotina
+   koa
    laravel
+   lumen
    pyramid
    quart
    responder
@@ -95,6 +102,7 @@ as:
    grafana
    jira
    joomla
+   mailman
    matomo
    mediawiki
    mercurial
@@ -106,6 +114,7 @@ as:
    plone
    redmine
    reviewboard
+   roundcube
    trac
    wordpress
 

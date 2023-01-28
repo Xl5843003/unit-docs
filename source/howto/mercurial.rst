@@ -7,7 +7,7 @@
 Mercurial
 #########
 
-To install and run the `Mercurial <https://www.mercurial-scm.org/>`_ source
+To install and run the `Mercurial <https://www.mercurial-scm.org>`_ source
 control system using Unit:
 
 #. .. include:: ../include/howto_install_unit.rst
@@ -29,8 +29,8 @@ control system using Unit:
 
        from mercurial.hgweb import hgweb
 
-       # path to a repo or a hgweb config file to serve (see 'hg help hgweb')
-       application = hgweb(":nxt_ph:`/path/to/app/repo/or/config/file <Replace with a real path in your configuration>`")
+       # path to a repo or a hgweb config file to serve in UTF-8 (see 'hg help hgweb')
+       application = hgweb(":nxt_ph:`/path/to/app/repo/or/config/file <Replace with a real path in your configuration>`".encode("utf-8"))
 
    This is a very basic script; to elaborate on it, see the
    Mercurial repo publishing `guide

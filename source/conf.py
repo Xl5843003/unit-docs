@@ -4,11 +4,11 @@ import os, sys
 
 project = 'NGINX Unit'
 author = 'NGINX, Inc.'
-copyright = '2017-2021'
-version = '1.25.0'
-release_date = 'August 19, 2021'
+copyright = '2017-2022'
+version = '1.28.0'
+release_date = 'September 13, 2022'
 release = version
-needs_sphinx = '4.0'
+needs_sphinx = '5.0'
 
 highlight_language = 'json'
 
@@ -23,7 +23,8 @@ html_extra_path = ['robots.txt', 'CHANGES.txt', 'go']
 html_context = {
     'release_date'  : release_date,
     'author'        : author,
-    'nxt_baseurl'   : html_baseurl
+    'nxt_baseurl'   : html_baseurl,
+    'nxt_rss_file'  : 'rss.xml'
 }
 
 rst_prolog = """

@@ -15,7 +15,7 @@ For example:
 
    $ export UNIT=$(                                             \
          docker run -d --mount type=bind,src="$(pwd)",dst=/www  \
-         -p 8080:8000 nginx/unit:|version|-python3.9               \
+         -p 8080:8000 nginx/unit:|version|-python3.10              \
      )
 
 The command mounts the host's current directory where your app files are stored
@@ -111,7 +111,7 @@ app:
    EOF
 
 Finally, let's create :file:`log/` and :file:`state/` directories to store Unit
-:ref:`log and state <installation-src-startup>` respectively:
+:ref:`log and state <source-startup>` respectively:
 
 .. code-block:: console
 
@@ -138,7 +138,7 @@ Everything is ready for a containerized Unit.  First, let's create a
 
 .. subs-code-block:: docker
 
-   FROM nginx/unit:|version|-python3.9
+   FROM nginx/unit:|version|-python3.10
    COPY requirements.txt /config/requirements.txt
    # PIP isn't installed by default, so we install it first.
    # Next, we install the requirements, remove PIP, and perform image cleanup.
@@ -201,15 +201,19 @@ To switch your app to a different Unit image, prepare a corresponding
    # module, run PIP, and perform cleanup just like we did earlier.
 
    # First, we install the required tooling and add Unit's repo.
-   RUN apt update && apt install -y curl apt-transport-https gnupg1 lsb-release  \
-       && curl -sL https://nginx.org/keys/nginx_signing.key | apt-key add -      \
-       && echo "deb https://packages.nginx.org/unit/debian/ `lsb_release -cs` unit"  \
+   RUN apt update && apt install -y curl apt-transport-https gnupg2 lsb-release  \
+           debian-archive-keyring                                                \
+       &&  curl -o /usr/share/keyrings/nginx-keyring.gpg                         \
+              https://unit.nginx.org/keys/nginx-keyring.gpg                      \
+       && echo "deb [signed-by=/usr/share/keyrings/nginx-keyring.gpg]            \
+              https://packages.nginx.org/unit/debian/ `lsb_release -cs` unit"    \
               > /etc/apt/sources.list.d/unit.list
 
    # Next, we install the module, download app requirements, and perform creanup.
    RUN apt update && apt install -y unit-python3.7 python3-pip                   \
        && pip3 install -r /config/requirements.txt                               \
-       && apt remove -y curl apt-transport-https gnupg1 lsb-release python3-pip  \
+       && apt remove -y curl apt-transport-https gnupg2 lsb-release python3-pip  \
+              debian-archive-keyring                                             \
        && apt autoremove --purge -y                                              \
        && rm -rf /var/lib/apt/lists/* /etc/apt/sources.list.d/*.list
 
@@ -387,7 +391,9 @@ Multilanguage Images
 
 Earlier, Unit had a :samp:`-full` Docker image with modules for all supported
 languages, but it was discontinued with version 1.22.0.  If you still need a
-multilanguage image, use the following :file:`Dockerfile` template:
+multilanguage image, use the following :file:`Dockerfile` template that starts
+with the minimal Unit image based on :ref:`Debian 11 <installation-debian-11>`
+and installs official language module packages:
 
 .. subs-code-block:: docker
 
@@ -395,17 +401,51 @@ multilanguage image, use the following :file:`Dockerfile` template:
    # We take a minimal Unit image and install language-specific modules.
 
    # First, we install the required tooling and add Unit's repo.
-   RUN apt update && apt install -y curl apt-transport-https gnupg1 lsb-release  \
-       && curl -sL https://nginx.org/keys/nginx_signing.key | apt-key add -      \
-       && echo "deb https://packages.nginx.org/unit/debian/ `lsb_release -cs` unit"  \
+   RUN apt update && apt install -y curl apt-transport-https gnupg2 lsb-release  \
+           debian-archive-keyring                                                \
+       &&  curl -o /usr/share/keyrings/nginx-keyring.gpg                         \
+              https://unit.nginx.org/keys/nginx-keyring.gpg                      \
+       && echo "deb [signed-by=/usr/share/keyrings/nginx-keyring.gpg]            \
+              https://packages.nginx.org/unit/debian/ `lsb_release -cs` unit"    \
               > /etc/apt/sources.list.d/unit.list
 
    # Next, we install the necessary language module packages and perform cleanup.
    RUN apt update && apt install -y                                              \
-           :nxt_hint:`unit-go unit-jsc11 unit-perl unit-php unit-python3.7 unit-ruby <List packages for the language versions you need>`        \
-       && apt remove -y curl apt-transport-https gnupg1 lsb-release              \
+           :nxt_hint:`unit-jsc11 unit-perl unit-php unit-python2.7 unit-python3.9 unit-ruby <Leave only packages for the language you need, removing the rest>` \
+       && apt remove -y curl apt-transport-https gnupg2 lsb-release              \
+              debian-archive-keyring                                             \
        && apt autoremove --purge -y                                              \
        && rm -rf /var/lib/apt/lists/* /etc/apt/sources.list.d/*.list
 
-Our images are based on :ref:`Debian 10 <debian-10>`; the choice of individual
-language packages is defined by this version.
+Instead of packages, you can build custom :ref:`modules
+<source-modules>`; use these :file:`Dockerfile.*` `templates
+<https://github.com/nginx/unit/tree/master/pkg/docker>`__ as reference.
+
+
+.. _docker-startup:
+
+*********************
+Startup Customization
+*********************
+
+Finally, you can customize the way Unit starts in a container by adding a new
+Dockerfile layer:
+
+.. subs-code-block:: docker
+
+   FROM nginx/unit:|version|-minimal
+
+   CMD ["unitd-debug","--no-daemon","--control","unix:/var/run/control.unit.sock"]
+
+The :samp:`CMD` instruction above replaces the default :program:`unitd`
+executable with its debug version.  Use Unit's :ref:`command-line options
+<source-startup>` to alter its startup behavior, for example:
+
+.. subs-code-block:: docker
+
+   FROM nginx/unit:|version|-minimal
+
+   CMD ["unitd","--no-daemon","--control","0.0.0.0:8080"]
+
+This replaces Unit's default UNIX domain control socket with an IP socket
+address.

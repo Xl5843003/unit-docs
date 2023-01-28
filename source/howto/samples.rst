@@ -32,13 +32,13 @@ Let's configure the following basic app, saved as :file:`/www/app.go`:
        unit.ListenAndServe(":8080", nil)
    }
 
-Compile it using the source code from the Go language package you have
-:ref:`installed <installation-precomp-pkgs>` or :ref:`built
-<installation-modules-go>` earlier:
+First, create a `Go module <https://go.dev/blog/using-go-modules>`__, :samp:`go
+get` Unit's package, and build your application:
 
-.. code-block:: console
+.. subs-code-block:: console
 
-   $ cp -r <package installation path>/src/* $GOPATH/src/
+   $ go mod init :nxt_ph:`example.com/app <Your Go module designation>`
+   $ go get unit.nginx.org/go@|version|
    $ go build -o /www/app /www/app.go
 
 Upload the :ref:`app config <configuration-go>` to Unit and test it:
@@ -58,12 +58,11 @@ Upload the :ref:`app config <configuration-go>` to Unit and test it:
              "executable": "/www/app"
          }
      }
-     }' --unix-socket /path/to/control.unit.sock http://localhost/config/
+     }' --unix-socket :nxt_ph:`/path/to/control.unit.sock <Path to Unit's control socket in your installation>` http://localhost/config/
 
    $ curl http://localhost:8080
 
        Hello, Go on Unit!
-
 
 Try this sample out with the Dockerfile :download:`here
 <../downloads/Dockerfile.go.txt>` or use a more elaborate app example:
@@ -89,7 +88,7 @@ Try this sample out with the Dockerfile :download:`here
        m := make(map[string]string)
        t := make(map[string]interface{})
 
-       m["message"] = "Kirov reporting"
+       m["message"] = "Unit reporting"
        m["agent"] = "NGINX Unit |version|"
 
        body, _ := ioutil.ReadAll(r.Body)
@@ -147,14 +146,17 @@ Upload the :ref:`app config <configuration-java>` to Unit and test it:
              "webapp": "/www/"
          }
      }
-     }' --unix-socket /path/to/control.unit.sock http://localhost/config/
+     }' --unix-socket :nxt_ph:`/path/to/control.unit.sock <Path to Unit's control socket in your installation>` http://localhost/config/
 
    $ curl http://localhost:8080
 
        Hello, JSP on Unit!
 
 Try this sample out with the Dockerfile :download:`here
-<../downloads/Dockerfile.java.txt>` or use a more elaborate app example:
+<../downloads/Dockerfile.java.txt>` or use a more elaborate app example (you'll
+need to `download <https://cliftonlabs.github.io/json-simple/>`__ and :ref:`add
+<configuration-java>` the :program:`json-simple` library to your app's
+:samp:`classpath` option):
 
 .. subs-code-block:: jsp
 
@@ -169,7 +171,7 @@ Try this sample out with the Dockerfile :download:`here
    <%
    JsonObject r = new JsonObject();
 
-   r.put("message", "Kirov reporting");
+   r.put("message", "Unit reporting");
    r.put("agent", "NGINX Unit |version|");
 
    JsonObject headers = new JsonObject();
@@ -211,7 +213,7 @@ Let's configure the following basic app, saved as :file:`/www/app.js`:
 
    #!/usr/bin/env node
 
-   require("unit-http").createServer(function (req, res) {
+   require(":nxt_hint:`unit-http <It's important to use unit-http instead of the regular http module>`").createServer(function (req, res) {
        res.writeHead(200, {"Content-Type": "text/plain"});
        res.end("Hello, Node.js on Unit!")
    }).listen()
@@ -242,7 +244,7 @@ Upload the :ref:`app config <configuration-nodejs>` to Unit and test it:
              "executable": "app.js"
          }
      }
-     }' --unix-socket /path/to/control.unit.sock http://localhost/config/
+     }' --unix-socket :nxt_ph:`/path/to/control.unit.sock <Path to Unit's control socket in your installation>` http://localhost/config/
 
    $ curl http://localhost:8080
 
@@ -263,7 +265,7 @@ Try this sample out with the Dockerfile :download:`here
 
            var r = {
                "agent":    "NGINX Unit |version|",
-               "message":  "Kirov reporting"
+               "message":  "Unit reporting"
            }
 
            r["headers"] = req.headers
@@ -316,7 +318,7 @@ Upload the :ref:`app config <configuration-perl>` to Unit and test it:
              "script": "/www/app.psgi"
          }
      }
-     }' --unix-socket /path/to/control.unit.sock http://localhost/config/
+     }' --unix-socket :nxt_ph:`/path/to/control.unit.sock <Path to Unit's control socket in your installation>` http://localhost/config/
 
    $ curl http://localhost:8080
 
@@ -341,7 +343,7 @@ Try this sample out with the Dockerfile :download:`here
        $res->header("Content-Type" => "application/json; charset=utf-8");
 
        my $r = {
-           "message"   => "Kirov reporting",
+           "message"   => "Unit reporting",
            "agent"     => "NGINX Unit |version|",
            "headers"   => $req->headers->psgi_flatten(),
            "body"      => $req->content,
@@ -383,7 +385,7 @@ Upload the :ref:`app config <configuration-php>` to Unit and test it:
              "root": "/www/"
          }
      }
-     }' --unix-socket /path/to/control.unit.sock http://localhost/config/
+     }' --unix-socket :nxt_ph:`/path/to/control.unit.sock <Path to Unit's control socket in your installation>` http://localhost/config/
 
    $ curl http://localhost:8080
 
@@ -399,7 +401,7 @@ Try this sample out with the Dockerfile :download:`here
    header("Content-Type: application/json; charset=utf-8");
 
    $r = array (
-      "message" => "Kirov reporting",
+      "message" => "Unit reporting",
       "agent"   => "NGINX Unit |version|"
    );
 
@@ -446,7 +448,7 @@ Upload the :ref:`app config <configuration-python>` to Unit and test it:
              "module": "wsgi"
          }
      }
-     }' --unix-socket /path/to/control.unit.sock http://localhost/config/
+     }' --unix-socket :nxt_ph:`/path/to/control.unit.sock <Path to Unit's control socket in your installation>` http://localhost/config/
 
    $ curl http://localhost:8080
 
@@ -465,7 +467,7 @@ Try this sample out with the Dockerfile :download:`here
 
        r = {}
 
-       r["message"] = "Kirov reporting"
+       r["message"] = "Unit reporting"
        r["agent"] = "NGINX Unit |version|"
 
        r["headers"] = {}
@@ -513,7 +515,7 @@ Upload the :ref:`app config <configuration-ruby>` to Unit and test it:
              "script": "config.ru"
          }
      }
-     }' --unix-socket /path/to/control.unit.sock http://localhost/config/
+     }' --unix-socket :nxt_ph:`/path/to/control.unit.sock <Path to Unit's control socket in your installation>` http://localhost/config/
 
    $ curl http://localhost:8080
 
@@ -530,7 +532,7 @@ Try this sample out with the Dockerfile :download:`here
    app = Proc.new do |env|
        body = env["rack.input"].read
        r = {
-           "message" => "Kirov reporting",
+           "message" => "Unit reporting",
            "agent"   => "NGINX Unit |version|",
            "body"    => body,
            "headers" => env.select { |key, value| key.include?("HTTP_") },
